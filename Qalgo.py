@@ -32,7 +32,7 @@ def discretize_state(state, state_bins):
     return tuple(discrete_state)
 
 
-def explore(num_cycles, alpha, gamma, q_table, state_bins, env, initial_state):
+def explore(num_cycles, alpha, gamma, q_table, state_bins, env, initial_state, name):
 
     discrete_state = initial_state
 
@@ -65,14 +65,14 @@ def explore(num_cycles, alpha, gamma, q_table, state_bins, env, initial_state):
             discrete_state = initial_state
 
     print("End Exploration")
-    np.save('CartPole_q_table.npy', q_table)
+    np.save(name +'_q_table.npy', q_table)
 
-def exploit(num_cycles, env, state_bins):
+def exploit(num_cycles, env, state_bins, name):
 
     count = 0
     max_count = 0
 
-    q_table = np.load('CartPole_q_table.npy')
+    q_table = np.load(name+'_q_table.npy')
     observation, info = env.reset()
     initial_state = discretize_state(observation, state_bins)
     discrete_state = initial_state
