@@ -31,11 +31,4 @@ if not os.path.exists(name+"_q_table.npy"):
 
 exploit(num_exploitations, env, state_bins, name)
 
-'''for _ in range(1000):
-   action = env.action_space.sample()  # this is where you would insert your policy
-   observation, reward, terminated, truncated, info = env.step(action)
-
-   if terminated or truncated:
-      observation, info = env.reset()
-'''
 env.close()
