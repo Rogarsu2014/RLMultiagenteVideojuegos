@@ -10,11 +10,10 @@ env = gym.make('CartPole-v1', render_mode="human")
 alpha = 0.15
 gamma = 0.95
 
-num_explorations = 10000
+num_explorations = 100000
 num_exploitations = 1000
 
-#num_bins = [10] * env.observation_space.shape[0]
-num_bins = [20,10,20,10]
+num_bins = [30] * env.observation_space.shape[0]
 
 state_bins = get_state_bins(env, num_bins)
 
