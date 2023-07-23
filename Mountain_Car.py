@@ -9,13 +9,13 @@ env = gym.make('MountainCar-v0', render_mode="human")
 
 name = "MountainCar"
 
-alpha = 0.15
-gamma = 0.95
+alpha = 0.5
+gamma = 1
 
-num_explorations = 100000
+num_explorations = 200000
 num_exploitations = 1000
 
-num_bins = [30] * env.observation_space.shape[0]
+num_bins = [14] * env.observation_space.shape[0]
 
 state_bins = get_state_bins(env, num_bins)
 
