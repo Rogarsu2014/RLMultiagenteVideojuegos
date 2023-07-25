@@ -31,6 +31,26 @@ def discretize_state(state, state_bins):
         discrete_state.append(np.digitize(state[i], state_bins[i]))
     return tuple(discrete_state)
 
+def get_action_bins(env, num_bins):
+    action_bins = []
+    for i in range(env.action_space.shape[0]):
+        if env.action_space.low[i] < -1e6 or env.action_space.high[i] > 1e6:
+            action_low = -5.0  # Set a fixed lower bound for infinite values
+            action_high = 5.0  # Set a fixed upper bound for infinite values
+        else:
+            action_low = env.action_space.low[i]
+            action_high = env.action_space.high[i]
+        #action_low, action_high = env.action_space.low[i], env.action_space.high[i]
+        action_bins.append(np.linspace(action_low, action_high, num_bins[i] + 1)[1:-1])
+    return action_bins
+
+def discretize_action(action, action_bins):
+    # Discretize each action variable based on the bin values
+    discrete_action = []
+    for i in range(len(action)):
+        discrete_action.append(np.digitize(action[i], action_bins[i]))
+    return tuple(discrete_action)
+
 
 def explore(num_cycles, alpha, gamma, q_table, state_bins, env, initial_state, name):
 
