@@ -87,6 +87,41 @@ def explore(num_cycles, alpha, gamma, q_table, state_bins, env, initial_state, n
     print("End Exploration")
     np.save(name +'_q_table.npy', q_table)
 
+def explore_discrete_observation(num_cycles, alpha, gamma, q_table, env, initial_state, name):
+
+    discrete_state = initial_state
+
+    learning_curve = (num_cycles-num_cycles/5)
+
+    for i in range(num_cycles):
+
+        if random.randint(i, num_cycles) < learning_curve:
+            action = env.action_space.sample() #accion aleatoria
+        else:
+            action = random_argmax_list(q_table[discrete_state])#mejor accion
+
+        q_value = q_table[discrete_state][action]
+
+        observation, reward, terminated, truncated, info = env.step(action)
+
+        next_discrete_state = observation
+        next_action = random_argmax_list(q_table[next_discrete_state])
+        new_q_value = calculateQ(q_value, alpha, reward, gamma, q_table[next_discrete_state][next_action])
+
+        # Update the Q-table with the new Q-value
+        q_table[discrete_state][action] = new_q_value
+
+        #pasar al siguiente
+        discrete_state = next_discrete_state
+
+        if terminated or truncated:
+            observation, info = env.reset()
+            initial_state = observation
+            discrete_state = initial_state
+
+    print("End Exploration")
+    np.save(name +'_q_table.npy', q_table)
+
 def exploit(num_cycles, env, state_bins, name):
 
     episode_number = 0
@@ -112,6 +147,49 @@ def exploit(num_cycles, env, state_bins, name):
         if terminated or truncated:
             observation, info = env.reset()
             initial_state = discretize_state(observation, state_bins)
+            discrete_state = initial_state
+
+            episode_number += 1
+            print("episode count: " + str(count))
+            print("episode reward: " + str(aux_reward))
+            sum_reward += aux_reward
+            if count > max_count:
+                max_count = count
+            if aux_reward > max_reward:
+                max_reward = aux_reward
+            count = 0
+            aux_reward = 0
+
+    print("End Exploitation")
+    print("Maximum episode count: " + str(max_count))
+    print("Maximum episode reward: " + str(max_reward))
+    print("average reward: " + str(sum_reward/episode_number))
+
+def exploit_discrete_observation(num_cycles, env, name):
+
+    episode_number = 0
+    count = 0
+    max_count = -99999
+    aux_reward = 0
+    sum_reward = 0
+    max_reward = -99999
+
+    q_table = np.load(name+'_q_table.npy')
+    observation, info = env.reset()
+    initial_state = observation
+    discrete_state = initial_state
+
+    for _ in range(num_cycles):
+        action = random_argmax_list(q_table[discrete_state])
+        observation, reward, terminated, truncated, info = env.step(action)
+        discrete_state = observation
+
+        count += 1
+        aux_reward += reward
+
+        if terminated or truncated:
+            observation, info = env.reset()
+            initial_state = observation
             discrete_state = initial_state
 
             episode_number += 1
