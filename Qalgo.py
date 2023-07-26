@@ -36,8 +36,8 @@ def get_action_bins(env, num_bins):
     action_bins = []
     for i in range(env.action_space.shape[0]):
         if env.action_space.low[i] < -1e6 or env.action_space.high[i] > 1e6:
-            action_low = -5.0  # Set a fixed lower bound for infinite values
-            action_high = 5.0  # Set a fixed upper bound for infinite values
+            action_low = -10.0  # Set a fixed lower bound for infinite values
+            action_high = 10.0  # Set a fixed upper bound for infinite values
         else:
             action_low = env.action_space.low[i]
             action_high = env.action_space.high[i]
@@ -58,20 +58,18 @@ def hash_state(discrete_state):
     return result
 
 
-def explore(num_cycles, alpha, gamma, q_table, state_bins, env, initial_state, name):
+def explore(num_cycles, alpha, gamma, epsilon, epsilon_decay, epsilon_min, q_table, state_bins, env, initial_state, name):
 
     num_actions = env.action_space.n
 
     discrete_state = hash_state(initial_state)
-
-    learning_curve = (num_cycles-num_cycles/5)
 
     for i in range(num_cycles):
 
         if discrete_state not in q_table:
             q_table[discrete_state] = [0] * num_actions
 
-        if random.randint(i, num_cycles) < learning_curve:
+        if random.random() < epsilon:
             action = env.action_space.sample() #accion aleatoria
         else:
             action = random_argmax_list(q_table[discrete_state])#mejor accion
@@ -92,6 +90,9 @@ def explore(num_cycles, alpha, gamma, q_table, state_bins, env, initial_state, n
 
         #pasar al siguiente
         discrete_state = next_discrete_state
+
+        if epsilon >= epsilon_min:
+            epsilon * epsilon_decay
 
         if terminated or truncated:
             observation, info = env.reset()
