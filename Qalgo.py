@@ -1,5 +1,6 @@
 import numpy as np
 import random
+import json
 
 def calculateQ(actualQ, alpha, reward, gamma, max_next_state):
     return (1 - alpha) * actualQ + alpha * (reward + gamma * max_next_state)
@@ -51,30 +52,43 @@ def discretize_action(action, action_bins):
         discrete_action.append(np.digitize(action[i], action_bins[i]))
     return tuple(discrete_action)
 
+def hash_state(discrete_state):
+    aux_array = [str(num) for num in discrete_state]
+    result = ''.join(aux_array)
+    return result
+
 
 def explore(num_cycles, alpha, gamma, q_table, state_bins, env, initial_state, name):
 
-    discrete_state = initial_state
+    num_actions = env.action_space.n
+
+    discrete_state = hash_state(initial_state)
 
     learning_curve = (num_cycles-num_cycles/5)
 
     for i in range(num_cycles):
+
+        if discrete_state not in q_table:
+            q_table[discrete_state] = [0] * num_actions
 
         if random.randint(i, num_cycles) < learning_curve:
             action = env.action_space.sample() #accion aleatoria
         else:
             action = random_argmax_list(q_table[discrete_state])#mejor accion
 
-        q_value = q_table[discrete_state + (action,)]
+        q_value = q_table[discrete_state][action]
 
         observation, reward, terminated, truncated, info = env.step(action)
 
-        next_discrete_state = discretize_state(observation, state_bins)
+        aux_discrete_state = discretize_state(observation, state_bins)
+        next_discrete_state = hash_state(aux_discrete_state)
+        if next_discrete_state not in q_table:
+            q_table[next_discrete_state] = [0] * num_actions
         next_action = random_argmax_list(q_table[next_discrete_state])
-        new_q_value = calculateQ(q_value, alpha, reward, gamma, q_table[next_discrete_state + (next_action,)])
+        new_q_value = calculateQ(q_value, alpha, reward, gamma, q_table[next_discrete_state][next_action])
 
         # Update the Q-table with the new Q-value
-        q_table[discrete_state + (action,)] = new_q_value
+        q_table[discrete_state][action] = new_q_value
 
         #pasar al siguiente
         discrete_state = next_discrete_state
@@ -82,10 +96,12 @@ def explore(num_cycles, alpha, gamma, q_table, state_bins, env, initial_state, n
         if terminated or truncated:
             observation, info = env.reset()
             initial_state = discretize_state(observation, state_bins)
-            discrete_state = initial_state
+            discrete_state = hash_state(initial_state)
 
     print("End Exploration")
-    np.save(name +'_q_table.npy', q_table)
+    #np.save(name +'_q_table.npy', q_table)
+    with open(name + "_q_table.json", "w") as f:
+        json.dump(q_table, f)
 
 def explore_discrete_observation(num_cycles, alpha, gamma, q_table, env, initial_state, name):
 
@@ -131,15 +147,22 @@ def exploit(num_cycles, env, state_bins, name):
     sum_reward = 0
     max_reward = -99999
 
-    q_table = np.load(name+'_q_table.npy')
+    num_actions = env.action_space.n
+    #q_table = np.load(name+'_q_table.npy')
+    with open(name + "_q_table.json") as f:
+        q_table = json.load(f)
     observation, info = env.reset()
     initial_state = discretize_state(observation, state_bins)
-    discrete_state = initial_state
+    discrete_state = hash_state(initial_state)
 
     for _ in range(num_cycles):
+
+        if discrete_state not in q_table:
+            q_table[discrete_state] = [0] * num_actions
+
         action = random_argmax_list(q_table[discrete_state])
         observation, reward, terminated, truncated, info = env.step(action)
-        discrete_state = discretize_state(observation, state_bins)
+        discrete_state = hash_state(discretize_state(observation, state_bins))
 
         count += 1
         aux_reward += reward
@@ -147,7 +170,7 @@ def exploit(num_cycles, env, state_bins, name):
         if terminated or truncated:
             observation, info = env.reset()
             initial_state = discretize_state(observation, state_bins)
-            discrete_state = initial_state
+            discrete_state = hash_state(initial_state)
 
             episode_number += 1
             print("episode count: " + str(count))

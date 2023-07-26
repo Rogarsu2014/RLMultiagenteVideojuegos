@@ -12,7 +12,7 @@ name = "CartPole"
 alpha = 0.15
 gamma = 0.95
 
-num_explorations = 100000
+num_explorations = 10000
 num_exploitations = 1000
 
 num_bins = [30] * env.observation_space.shape[0]
@@ -24,9 +24,10 @@ observation, info = env.reset()
 initial_state = discretize_state(observation, state_bins)
 
 # Initialize the Q-table with zeros (numbins and numactions)
-q_table = np.zeros((*num_bins, env.action_space.n))
+#q_table = np.zeros((*num_bins, env.action_space.n))
+q_table = {}
 
-if not os.path.exists(name+"_q_table.npy"):
+if not os.path.exists(name+"_q_table.json"):
     explore(num_explorations, alpha, gamma, q_table, state_bins, env, initial_state, name)
 
 exploit(num_exploitations, env, state_bins, name)
