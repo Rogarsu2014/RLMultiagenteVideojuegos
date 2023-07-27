@@ -15,8 +15,8 @@ epsilon = 1
 epsilon_decay = 0.999999
 epsilon_min = 0.15
 
-num_explorations = 4000000
-num_exploitations = 1000
+num_explorations = 10000000
+num_exploitations = 10000
 
 num_bins = [50] * env.observation_space.shape[0]
 

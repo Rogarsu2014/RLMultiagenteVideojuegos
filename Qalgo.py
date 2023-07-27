@@ -2,6 +2,7 @@ import numpy as np
 import random
 import json
 
+
 def calculateQ(actualQ, alpha, reward, gamma, max_next_state):
     return (1 - alpha) * actualQ + alpha * (reward + gamma * max_next_state)
 
@@ -16,14 +17,15 @@ def get_state_bins(env, num_bins):
     state_bins = []
     for i in range(env.observation_space.shape[0]):
         if env.observation_space.low[i] < -1e6 or env.observation_space.high[i] > 1e6:
-            state_low = -5.0  # Set a fixed lower bound for infinite values
-            state_high = 5.0  # Set a fixed upper bound for infinite values
+            state_low = -10.0  # Set a fixed lower bound for infinite values
+            state_high = 10.0  # Set a fixed upper bound for infinite values
         else:
             state_low = env.observation_space.low[i]
             state_high = env.observation_space.high[i]
-        #state_low, state_high = env.observation_space.low[i], env.observation_space.high[i]
+        # state_low, state_high = env.observation_space.low[i], env.observation_space.high[i]
         state_bins.append(np.linspace(state_low, state_high, num_bins[i] + 1)[1:-1])
     return state_bins
+
 
 def discretize_state(state, state_bins):
     # Discretize each state variable based on the bin values
@@ -31,6 +33,7 @@ def discretize_state(state, state_bins):
     for i in range(len(state)):
         discrete_state.append(np.digitize(state[i], state_bins[i]))
     return tuple(discrete_state)
+
 
 def get_action_bins(env, num_bins):
     action_bins = []
@@ -41,9 +44,10 @@ def get_action_bins(env, num_bins):
         else:
             action_low = env.action_space.low[i]
             action_high = env.action_space.high[i]
-        #action_low, action_high = env.action_space.low[i], env.action_space.high[i]
+        # action_low, action_high = env.action_space.low[i], env.action_space.high[i]
         action_bins.append(np.linspace(action_low, action_high, num_bins[i] + 1)[1:-1])
     return action_bins
+
 
 def discretize_action(action, action_bins):
     # Discretize each action variable based on the bin values
@@ -52,6 +56,7 @@ def discretize_action(action, action_bins):
         discrete_action.append(np.digitize(action[i], action_bins[i]))
     return tuple(discrete_action)
 
+
 def hash_state(discrete_state):
     aux_array = [str(num) for num in discrete_state]
     result = ''.join(aux_array)
@@ -59,8 +64,8 @@ def hash_state(discrete_state):
 
 
 def explore(num_cycles, alpha, gamma, epsilon, epsilon_decay, epsilon_min, q_table, state_bins, env, initial_state, name):
-
     num_actions = env.action_space.n
+    aux_epsilon = epsilon
 
     discrete_state = hash_state(initial_state)
 
@@ -69,10 +74,10 @@ def explore(num_cycles, alpha, gamma, epsilon, epsilon_decay, epsilon_min, q_tab
         if discrete_state not in q_table:
             q_table[discrete_state] = [0] * num_actions
 
-        if random.random() < epsilon:
-            action = env.action_space.sample() #accion aleatoria
+        if random.random() < aux_epsilon:
+            action = env.action_space.sample()  # accion aleatoria
         else:
-            action = random_argmax_list(q_table[discrete_state])#mejor accion
+            action = random_argmax_list(q_table[discrete_state])  # mejor accion
 
         q_value = q_table[discrete_state][action]
 
@@ -88,11 +93,11 @@ def explore(num_cycles, alpha, gamma, epsilon, epsilon_decay, epsilon_min, q_tab
         # Update the Q-table with the new Q-value
         q_table[discrete_state][action] = new_q_value
 
-        #pasar al siguiente
+        # pasar al siguiente
         discrete_state = next_discrete_state
 
-        if epsilon >= epsilon_min:
-            epsilon * epsilon_decay
+        if aux_epsilon >= epsilon_min:
+            aux_epsilon = aux_epsilon * epsilon_decay
 
         if terminated or truncated:
             observation, info = env.reset()
@@ -100,22 +105,22 @@ def explore(num_cycles, alpha, gamma, epsilon, epsilon_decay, epsilon_min, q_tab
             discrete_state = hash_state(initial_state)
 
     print("End Exploration")
-    #np.save(name +'_q_table.npy', q_table)
+    # np.save(name +'_q_table.npy', q_table)
     with open(name + "_q_table.json", "w") as f:
         json.dump(q_table, f)
 
-def explore_discrete_observation(num_cycles, alpha, gamma, q_table, env, initial_state, name):
 
+def explore_discrete_observation(num_cycles, alpha, gamma, q_table, env, initial_state, name):
     discrete_state = initial_state
 
-    learning_curve = (num_cycles-num_cycles/5)
+    learning_curve = (num_cycles - num_cycles / 5)
 
     for i in range(num_cycles):
 
         if random.randint(i, num_cycles) < learning_curve:
-            action = env.action_space.sample() #accion aleatoria
+            action = env.action_space.sample()  # accion aleatoria
         else:
-            action = random_argmax_list(q_table[discrete_state])#mejor accion
+            action = random_argmax_list(q_table[discrete_state])  # mejor accion
 
         q_value = q_table[discrete_state][action]
 
@@ -128,7 +133,7 @@ def explore_discrete_observation(num_cycles, alpha, gamma, q_table, env, initial
         # Update the Q-table with the new Q-value
         q_table[discrete_state][action] = new_q_value
 
-        #pasar al siguiente
+        # pasar al siguiente
         discrete_state = next_discrete_state
 
         if terminated or truncated:
@@ -137,10 +142,10 @@ def explore_discrete_observation(num_cycles, alpha, gamma, q_table, env, initial
             discrete_state = initial_state
 
     print("End Exploration")
-    np.save(name +'_q_table.npy', q_table)
+    np.save(name + '_q_table.npy', q_table)
+
 
 def exploit(num_cycles, env, state_bins, name):
-
     episode_number = 0
     count = 0
     max_count = -99999
@@ -149,7 +154,7 @@ def exploit(num_cycles, env, state_bins, name):
     max_reward = -99999
 
     num_actions = env.action_space.n
-    #q_table = np.load(name+'_q_table.npy')
+    # q_table = np.load(name+'_q_table.npy')
     with open(name + "_q_table.json") as f:
         q_table = json.load(f)
     observation, info = env.reset()
@@ -187,10 +192,10 @@ def exploit(num_cycles, env, state_bins, name):
     print("End Exploitation")
     print("Maximum episode count: " + str(max_count))
     print("Maximum episode reward: " + str(max_reward))
-    print("average reward: " + str(sum_reward/episode_number))
+    print("average reward: " + str(sum_reward / episode_number))
+
 
 def exploit_discrete_observation(num_cycles, env, name):
-
     episode_number = 0
     count = 0
     max_count = -99999
@@ -198,7 +203,7 @@ def exploit_discrete_observation(num_cycles, env, name):
     sum_reward = 0
     max_reward = -99999
 
-    q_table = np.load(name+'_q_table.npy')
+    q_table = np.load(name + '_q_table.npy')
     observation, info = env.reset()
     initial_state = observation
     discrete_state = initial_state
@@ -230,4 +235,4 @@ def exploit_discrete_observation(num_cycles, env, name):
     print("End Exploitation")
     print("Maximum episode count: " + str(max_count))
     print("Maximum episode reward: " + str(max_reward))
-    print("average reward: " + str(sum_reward/episode_number))
+    print("average reward: " + str(sum_reward / episode_number))
