@@ -62,8 +62,12 @@ def hash_state(discrete_state):
     result = ''.join(aux_array)
     return result
 
+def hash_discrete_state(discrete_state):
+    return str(discrete_state)
+
 
 def explore(num_cycles, alpha, gamma, epsilon, epsilon_decay, epsilon_min, q_table, state_bins, env, initial_state, name):
+
     num_actions = env.action_space.n
     aux_epsilon = epsilon
 
@@ -110,14 +114,18 @@ def explore(num_cycles, alpha, gamma, epsilon, epsilon_decay, epsilon_min, q_tab
         json.dump(q_table, f)
 
 
-def explore_discrete_observation(num_cycles, alpha, gamma, q_table, env, initial_state, name):
-    discrete_state = initial_state
+def explore_discrete_observation(num_cycles, alpha, gamma, epsilon, epsilon_decay, epsilon_min, q_table, env, initial_state, name):
+    num_actions = env.action_space.n
+    discrete_state = hash_discrete_state(initial_state)
 
-    learning_curve = (num_cycles - num_cycles / 5)
+    aux_epsilon = epsilon
 
     for i in range(num_cycles):
 
-        if random.randint(i, num_cycles) < learning_curve:
+        if discrete_state not in q_table:
+            q_table[discrete_state] = [0] * num_actions
+
+        if random.random() < aux_epsilon:
             action = env.action_space.sample()  # accion aleatoria
         else:
             action = random_argmax_list(q_table[discrete_state])  # mejor accion
@@ -126,7 +134,9 @@ def explore_discrete_observation(num_cycles, alpha, gamma, q_table, env, initial
 
         observation, reward, terminated, truncated, info = env.step(action)
 
-        next_discrete_state = observation
+        next_discrete_state = hash_discrete_state(observation)
+        if next_discrete_state not in q_table:
+            q_table[next_discrete_state] = [0] * num_actions
         next_action = random_argmax_list(q_table[next_discrete_state])
         new_q_value = calculateQ(q_value, alpha, reward, gamma, q_table[next_discrete_state][next_action])
 
@@ -136,13 +146,18 @@ def explore_discrete_observation(num_cycles, alpha, gamma, q_table, env, initial
         # pasar al siguiente
         discrete_state = next_discrete_state
 
+        if aux_epsilon >= epsilon_min:
+            aux_epsilon = aux_epsilon * epsilon_decay
+
         if terminated or truncated:
             observation, info = env.reset()
             initial_state = observation
-            discrete_state = initial_state
+            discrete_state = hash_discrete_state(initial_state)
 
     print("End Exploration")
-    np.save(name + '_q_table.npy', q_table)
+    #np.save(name + '_q_table.npy', q_table)
+    with open(name + "_q_table.json", "w") as f:
+        json.dump(q_table, f)
 
 
 def exploit(num_cycles, env, state_bins, name):
@@ -203,15 +218,21 @@ def exploit_discrete_observation(num_cycles, env, name):
     sum_reward = 0
     max_reward = -99999
 
-    q_table = np.load(name + '_q_table.npy')
+    num_actions = env.action_space.n
+    # q_table = np.load(name+'_q_table.npy')
+    with open(name + "_q_table.json") as f:
+        q_table = json.load(f)
     observation, info = env.reset()
-    initial_state = observation
-    discrete_state = initial_state
+    discrete_state = hash_discrete_state(observation)
 
     for _ in range(num_cycles):
+
+        if discrete_state not in q_table:
+            q_table[discrete_state] = [0] * num_actions
+
         action = random_argmax_list(q_table[discrete_state])
         observation, reward, terminated, truncated, info = env.step(action)
-        discrete_state = observation
+        discrete_state = hash_discrete_state(observation)
 
         count += 1
         aux_reward += reward
@@ -219,7 +240,7 @@ def exploit_discrete_observation(num_cycles, env, name):
         if terminated or truncated:
             observation, info = env.reset()
             initial_state = observation
-            discrete_state = initial_state
+            discrete_state = hash_discrete_state(initial_state)
 
             episode_number += 1
             print("episode count: " + str(count))
