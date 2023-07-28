@@ -1,0 +1,3 @@
+[submodule "libs/submodule"]
+	path = libs/submodule
+	url = https://github.com/SergioHdezG/pyRIL
