@@ -204,6 +204,9 @@ def exploit(num_cycles, env, state_bins, name):
             count = 0
             aux_reward = 0
 
+    if episode_number == 0:
+        episode_number = 1
+
     print("End Exploitation")
     print("Maximum episode count: " + str(max_count))
     print("Maximum episode reward: " + str(max_reward))
@@ -253,6 +256,8 @@ def exploit_discrete_observation(num_cycles, env, name):
             count = 0
             aux_reward = 0
 
+    if episode_number == 0:
+        episode_number = 1
     print("End Exploitation")
     print("Maximum episode count: " + str(max_count))
     print("Maximum episode reward: " + str(max_reward))
