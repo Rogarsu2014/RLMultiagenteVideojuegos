@@ -18,15 +18,15 @@ else:
     print("TensorFlow is using CPU.")
 
 
-environment = pistonball_v6.parallel_env(render_mode="human")#, render_mode="human"
-
+environment = pistonball_v6.parallel_env(render_mode="human", continuous=False)#, render_mode="human"
+environment.reset()
 name = "Pistonball_v6"
 
 show_results = False
 
 agents = []
 for agent in environment.agents:
-    agents.append(dqn_agent.Agent(learning_rate=1e-3, batch_size=128, epsilon=0.4, epsilon_decay=0.999, epsilon_min=0.15))
+    agents.append(dqn_agent.Agent(learning_rate=1e-3, batch_size=128, epsilon=0.4, epsilon_decay=0.999, epsilon_min=0.15, img_input=True))
 
 if show_results:
     if os.path.exists(name + '_agent.json'):

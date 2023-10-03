@@ -25,6 +25,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
         self.n_stack = []
         self.img_input = []
         self.state_size = []
+        self.n_actions = []
         for i, agent in enumerate(self.agents):
             self.n_stack.append(agent.n_stack)
             self.img_input.append(agent.img_input)
@@ -34,16 +35,16 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
 
             if self.state_size[i] is None:
                 if self.img_input[i]:
-                    self.state_size[i] = self.env.observation_space.shape
+                    self.state_size[i] = self.env.observation_space(self.env.agents[i]).shape
                 else:
-                    self.state_size[i] = self.env.observation_space.shape[0]
+                    self.state_size[i] = self.env.observation_space(self.env.agents[i]).shape[0]
                 agent.env_state_size = self.state_size[i]
 
-        # Set n_actions depending on the environment format
-        try:
-            self.n_actions = self.env.action_space.n
-        except AttributeError:
-            self.n_actions = self.env.action_space.shape[0]
+            # Set n_actions depending on the environment format
+            try:
+                self.n_actions.append(self.env.action_space(self.env.agents[i]).n)
+            except AttributeError:
+                self.n_actions.append(self.env.action_space(self.env.agents[i]).shape[0])
 
         # Setting default preprocess and clip_norm_reward functions
         self.preprocess = self._preprocess  # Preprocessing function for observations
@@ -65,7 +66,8 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
         pass
 
     def compile(self):
-        self.agent.compile()
+        for agent in self.agents:
+            agent.compile()
 
 
     def solve(self, episodes, render=True, render_after=None, max_step_epi=None, skip_states=1, verbose=1,
@@ -117,27 +119,26 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
             done = False
 
             # Reading initial state
-            obs = self.preprocess(obs)
+            observations = self.preprocess(observations)
             # obs = np.zeros((300, 300))
 
             # Stacking inputs
             for j, agent in enumerate(self.agents):
                 if self.n_stack[j] is not None and self.n_stack[j] > 1:
                     for i in range(self.n_stack[j]):
-                        obs_queue[j].append(np.zeros(obs.shape))
-                        obs_next_queue[j].append(np.zeros(obs.shape))
-                    obs_queue[j].append(obs)
-                    obs_next_queue[j].append(obs)
+                        obs_queue[j].append(np.zeros(observations[j].shape))
+                        obs_next_queue[j].append(np.zeros(observations[j].shape))
+                    obs_queue[j].append(observations[j])
+                    obs_next_queue[j].append(observations[j])
 
             # While the episode doesn't reach a final state
             while self.env.agents:
-                #if render or ((render_after is not None) and e > render_after):
-                    #self.env.render()
-
+                if render or ((render_after is not None) and e > render_after):
+                    self.env.render()
                 # this is where you would insert your policy
                 actions = []
                 for i, agent in enumerate(self.env.agents):
-                    actions.append(self.act_train(observations[i], obs_queue[i], i))
+                    actions.append(self.act_train(observations[agent], obs_queue[i], i))
 
                 next_observations, rewards, terminations, truncations, infos = self.env.step(actions)
                 # Agent act in the environment
@@ -147,14 +148,14 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                     if discriminator.stack:
                         reward = discriminator.get_reward(obs_queue, actions)[0]
                     else:
-                        reward = discriminator.get_reward(obs, actions)[0]
+                        reward = discriminator.get_reward(observations, actions)[0]
                 # next_obs = np.zeros((300, 300))
                 # next_obs = self.preprocess(next_obs)  # Is made in store_experience now
 
                 # Store the experience in memory
                 for i, agent in enumerate(self.env.agents):
-                    next_observations[i], obs_next_queue[i], rewards[i], done, epochs = self.store_experience(actions[i], done, next_observations[i], observations[i], obs_next_queue[i],
-                                                                         obs_queue[i], rewards[i], skip_states, epochs)
+                    next_observations[agent], obs_next_queue[i], rewards[agent], done, epochs = self.store_experience(actions[i], done, next_observations[agent], observations[agent], obs_next_queue[i],
+                                                                         obs_queue[i], rewards[agent], skip_states, epochs)
 
                     # Replay some memories and training the agent
                     self.agents[i].replay()
@@ -171,7 +172,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
 
             # Add reward to the list
             rew_mean_list.append(episodic_reward)
-            self.histogram_metrics.append([self.total_episodes, episodic_reward, epochs, self.agent.epsilon, self.global_steps])
+            self.histogram_metrics.append([self.total_episodes, episodic_reward, epochs, self.agents[0].epsilon, self.global_steps])
 
             if save_live_histogram:
                 if isinstance(save_live_histogram, str):

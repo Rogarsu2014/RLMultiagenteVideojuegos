@@ -18,16 +18,16 @@ class DQNProblemMultiAgent(RLProblemMultiAgentSuper):
                 model_params:   Dictionary of params like learning rate, batch size, epsilon values, n step returns...
         """
         super().__init__(environment, agents)
-        for agent in agents:
+        for i, agent in enumerate(agents):
             if not agent.agent_builded:
-                self._build_agent()
+                self._build_agent(i)
 
-    def _build_agent(self):
+    def _build_agent(self, i):
         # Building the agent depending of the input type
-        if self.img_input:
-            stack = self.n_stack is not None and self.n_stack > 1
+        if self.img_input[i]:
+            stack = self.n_stack[i] is not None and self.n_stack[i] > 1
             # TODO: Tratar n_stack como ambos channel last and channel first
-            state_size = (*self.state_size[:2], self.state_size[-1] * self.n_stack)
+            state_size = (*self.state_size[i][:2], self.state_size[i][-1] * self.n_stack[i])
             # if self.n_stack is not None and self.n_stack > 1:
                 # return agent.Agent(self.n_actions, state_size=(*self.state_size[:2], self.state_size[-1] * self.n_stack),
                 #                    stack=True, img_input=self.img_input, model_params=model_params,
@@ -36,17 +36,17 @@ class DQNProblemMultiAgent(RLProblemMultiAgentSuper):
             # else:
             #     return agent.Agent(self.n_actions, state_size=self.state_size, img_input=self.img_input,
             #                        model_params=model_params, net_architecture=net_architecture)
-        elif self.n_stack is not None and self.n_stack > 1:
+        elif self.n_stack[i] is not None and self.n_stack[i] > 1:
             stack = True
-            state_size = (self.n_stack, self.state_size)
+            state_size = (self.n_stack[i], self.state_size[i])
             # return agent.Agent(self.n_actions, state_size=(self.state_size, self.n_stack), stack=True,
             #                    model_params=model_params, net_architecture=net_architecture)
         else:
             stack = False
-            state_size = self.state_size
+            state_size = self.state_size[i]
             # return agent.Agent(self.n_actions, state_size=self.state_size, model_params=model_params,
             #                    net_architecture=net_architecture)
-        self.agent.build_agent(self.n_actions, state_size=state_size, stack=stack)
+        self.agents[i].build_agent(self.n_actions[i], state_size=state_size, stack=stack)
 
     def _max_steps(self, done, epochs, max_steps):
         return done
