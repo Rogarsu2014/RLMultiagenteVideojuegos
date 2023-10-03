@@ -15,11 +15,11 @@ else:
     print("TensorFlow is using CPU.")
 
 
-environment = gym.make("CartPole-v1")#, render_mode="human"
+environment = gym.make("CartPole-v1", render_mode="human")#, render_mode="human"
 
 name = "CartPole-v1"
 
-show_results = False
+show_results = True
 
 agent = dqn_agent.Agent(learning_rate=1e-3, batch_size=128, epsilon=0.4, epsilon_decay=0.999, epsilon_min=0.15)
 
@@ -32,7 +32,7 @@ if show_results:
 problem = dqn_problem.DQNProblem(environment, agent)
 
 if not show_results:
-    problem.solve(30, verbose=1)
+    problem.solve(100, verbose=1)
     hist = problem.get_histogram_metrics()
     history_utils.plot_reward_hist(hist, n_moving_average=10)
 
