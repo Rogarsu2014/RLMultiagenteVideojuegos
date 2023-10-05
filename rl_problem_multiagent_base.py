@@ -22,6 +22,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
         """
         self.env = environment
         self.agents = agents
+        self.num_agents = len(agents)
         self.n_stack = []
         self.img_input = []
         self.state_size = []
@@ -102,7 +103,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
         obs_queue = []
         obs_next_queue = []
         for i, agent in enumerate(self.agents):
-            if self.n_stack[i] is not None and self.n_stack[i] > 1:
+            if self.n_stack[i] is not None and self.n_stack[i] > 1:#Esto no entra (hay que retocarlo si entra)
                 obs_queue.append(deque(maxlen=self.n_stack[i]))
                 obs_next_queue.append(deque(maxlen=self.n_stack[i]))
             else:
@@ -124,7 +125,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
 
             # Stacking inputs
             for j, agent in enumerate(self.agents):
-                if self.n_stack[j] is not None and self.n_stack[j] > 1:
+                if self.n_stack[j] is not None and self.n_stack[j] > 1:#Esto no entra (hay que retocarlo si entra)
                     for i in range(self.n_stack[j]):
                         obs_queue[j].append(np.zeros(observations[j].shape))
                         obs_next_queue[j].append(np.zeros(observations[j].shape))
@@ -136,15 +137,15 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                 if render or ((render_after is not None) and e > render_after):
                     self.env.render()
                 # this is where you would insert your policy
-                actions = []
+                actions = {}
                 for i, agent in enumerate(self.env.agents):
-                    actions.append(self.act_train(observations[agent], obs_queue[i], i))
+                    actions[agent] = self.act_train(observations[agent], obs_queue[i%self.num_agents], i)
 
                 next_observations, rewards, terminations, truncations, infos = self.env.step(actions)
                 # Agent act in the environment
                 #next_obs, reward, terminated, truncated, _ = self.env.step(action)
                 #done = terminated or truncated
-                if discriminator is not None:
+                if discriminator is not None:#Esto no entra (hay que retocarlo si entra)
                     if discriminator.stack:
                         reward = discriminator.get_reward(obs_queue, actions)[0]
                     else:
@@ -154,19 +155,20 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
 
                 # Store the experience in memory
                 for i, agent in enumerate(self.env.agents):
-                    next_observations[agent], obs_next_queue[i], rewards[agent], done, epochs = self.store_experience(actions[i], done, next_observations[agent], observations[agent], obs_next_queue[i],
-                                                                         obs_queue[i], rewards[agent], skip_states, epochs)
+                    next_observations[agent], obs_next_queue[i%self.num_agents], rewards[agent], done, epochs = self.store_experience(actions[agent], done, next_observations[agent], observations[agent], obs_next_queue[i%self.num_agents],
+                                                                         obs_queue[i%self.num_agents], rewards[agent], skip_states, epochs, i)
 
                     # Replay some memories and training the agent
-                    self.agents[i].replay()
+                    self.agents[i%self.num_agents].replay()
 
                 # copy next_obs to obs
-                observations, obs_queue = self.copy_next_obs(next_observations, observations, obs_next_queue, obs_queue)
+                observations, obs_queue = self.copy_next_obs(next_observations, observations, obs_next_queue, obs_queue,0)#i = 0 por conveniencia
 
                 # If max steps value is reached the episode is finished
                 done = self._max_steps(done, epochs, max_step_epi)
 
-                episodic_reward += np.mean(rewards)
+                values = rewards.values()
+                episodic_reward += sum(values) / len(values)
                 epochs += 1
                 self.global_steps += 1
 
@@ -193,11 +195,11 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                 self.agents[i].save_tensorboar_rl_histogram(self.histogram_metrics)
         return
 
-    def copy_next_obs(self, next_obs, obs, obs_next_queue, obs_queue):
+    def copy_next_obs(self, next_obs, obs, obs_next_queue, obs_queue, i):
         """
         Make a copy of the current observation ensuring the is no conflicts of two variables pointing common values.
         """
-        if self.n_stack is not None and self.n_stack > 1:
+        if self.n_stack[i%self.num_agents] is not None and self.n_stack[i%self.num_agents] > 1:
             obs_queue = copy.copy(obs_next_queue)
         else:
             obs = next_obs
@@ -213,13 +215,13 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
         :return: (int or [floats]) int if actions are discrete or numpy array of float of action shape if actions are
             continuous)
         """
-        if self.n_stack[i] is not None and self.n_stack[i] > 1:
-            action = self.agents[i].act_train(np.array(obs_queue))
+        if self.n_stack[i%self.num_agents] is not None and self.n_stack[i%self.num_agents] > 1:
+            action = self.agents[i%self.num_agents].act_train(np.array(obs_queue))
         else:
-            action = self.agents[i].act_train(obs)
+            action = self.agents[i%self.num_agents].act_train(obs)
         return action
 
-    def act(self, obs, obs_queue):
+    def act(self, obs, obs_queue, i):
         """
         Make the agent select an action in exploitation mode given an observation. Use an input depending if the
         observations are stacked.
@@ -229,13 +231,13 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
         :return: (int or [floats]) int if actions are discrete or numpy array of float of action shape if actions are
             continuous)
         """
-        if self.n_stack is not None and self.n_stack > 1:
-            action = self.agent.act(np.array(obs_queue))
+        if self.n_stack[i%self.num_agents] is not None and self.n_stack[i%self.num_agents] > 1:
+            action = self.agents[i%self.num_agents].act(np.array(obs_queue))
         else:
-            action = self.agent.act(obs)
+            action = self.agents[i%self.num_agents].act(obs)
         return action
 
-    def store_experience(self, action, done, next_obs, obs, obs_next_queue, obs_queue, reward, skip_states, epochs):
+    def store_experience(self, action, done, next_obs, obs, obs_next_queue, obs_queue, reward, skip_states, epochs, i):
         """
         Method for store a experience in the agent memory. A standard experience consist of a tuple (observation,
         action, reward, next observation, done flag).
@@ -256,7 +258,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
         done, next_obs, reward, epochs = self.frame_skipping(action, done, next_obs, reward, skip_states, epochs)
 
         # Store the experience in memory depending on stacked inputs and observations type
-        if self.n_stack is not None and self.n_stack > 1:
+        if self.n_stack[i%self.num_agents] is not None and self.n_stack[i%self.num_agents] > 1:
             obs_next_queue.append(next_obs)
 
             if self.img_input:
@@ -266,9 +268,9 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                 obs_satck = np.array(obs_queue)
                 obs_next_stack = np.array(obs_next_queue)
 
-            self.agent.remember(obs_satck, action, self.clip_norm_reward(reward), obs_next_stack, done)
+            self.agents[i%self.num_agents].remember(obs_satck, action, self.clip_norm_reward(reward), obs_next_stack, done)
         else:
-            self.agent.remember(obs, action, self.clip_norm_reward(reward), next_obs, done)
+            self.agents[i%self.num_agents].remember(obs, action, self.clip_norm_reward(reward), next_obs, done)
         return next_obs, obs_next_queue, reward, done, epochs
 
     def frame_skipping(self, action, done, next_obs, reward, skip_states, epochs):
@@ -284,7 +286,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
         :param skip_states: (int) >= 0. Select the number of states to skip.
         :param epochs: (int) Spisode epochs counter.
         """
-        if skip_states > 1 and not done:
+        if skip_states > 1 and not done:#Esto no entra (hay que retocarlo si entra)
             for i in range(skip_states - 2):
                 next_obs_aux1, reward_aux, terminated_aux, truncated_aux, _ = self.env.step(action)
                 done_aux = terminated_aux or truncated_aux
@@ -332,54 +334,64 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
         rew_mean_list = deque(maxlen=smooth_rewards)
 
         # Stacking inputs
-        if self.n_stack is not None and self.n_stack > 1:
-            obs_queue = deque(maxlen=self.n_stack)
-        else:
-            obs_queue = None
+        obs_queue = []
+        obs_next_queue = []
+        for i, agent in enumerate(self.agents):
+            if self.n_stack[i] is not None and self.n_stack[i] > 1:
+                obs_queue.append(deque(maxlen=self.n_stack))
+            else:
+                obs_queue.append(None)
 
         # For each episode do
         for e in range(n_iter):
             done = False
             episodic_reward = 0
             epochs = 0
-            obs, info = self.env.reset()
-            obs = self.preprocess(obs)
+            observations, info = self.env.reset()
+            observations = self.preprocess(observations)
 
             # stacking inputs
-            if self.n_stack is not None and self.n_stack > 1:
-                for i in range(self.n_stack):
-                    obs_queue.append(np.zeros(obs.shape))
-                obs_queue.append(obs)
+            for i, agent in enumerate(self.env.agents):
+                if self.n_stack[i%self.num_agents] is not None and self.n_stack[i%self.num_agents] > 1:#Esto no entra (hay que retocarlo si entra)
+                    for j in range(self.n_stack[i%self.num_agents]):
+                        obs_queue[i%self.num_agents].append(np.zeros(observations[agent].shape))
+                    obs_queue.append(observations)
 
-            while not done:
+            while self.env.agents:
                 if render:
                     self.env.render()
 
                 # Select action
                 # TODO: poner bien
                 # action = self.act(obs, obs_queue)
-                action = self.act(obs, obs_queue)
+                actions = {}
+                for i, agent in enumerate(self.env.agents):
+                    actions[agent] = self.act(observations[agent], obs_queue[i % self.num_agents], i)
+                #action = self.act(obs, obs_queue)
 
-                prev_obs = obs
+                prev_observations = observations
 
-                obs, reward, terminated, truncated, info = self.env.step(action)
-                done = terminated or truncated
-                obs = self.preprocess(obs)
+                observations, rewards, terminations, truncations, infos = self.env.step(actions)
+                #obs, reward, terminated, truncated, info = self.env.step(action)
 
-                if discriminator is not None:
+                observations = self.preprocess(observations)
+
+                if discriminator is not None:#Esto no entra (hay que retocarlo si entra)
                     if discriminator.stack:
-                        reward = discriminator.get_reward(obs_queue, action, multithread=False)[0]
+                        reward = discriminator.get_reward(obs_queue, actions, multithread=False)[0]
                     else:
-                        reward = discriminator.get_reward(obs, action, multithread=False)[0]
+                        reward = discriminator.get_reward(observations, actions, multithread=False)[0]
 
                 if callback is not None:
-                    callback(prev_obs, obs, action, reward, done, info)
+                    callback(prev_observations, observations, actions, reward, done, info)#Esto no entra (hay que retocarlo si entra)
 
-                episodic_reward += reward
+                values = rewards.values()
+                episodic_reward += sum(values) / len(values)
                 epochs += 1
 
-                if self.n_stack is not None and self.n_stack > 1:
-                    obs_queue.append(obs)
+                for i, agent in enumerate(self.env.agents):#Esto no entra (hay que retocarlo si entra)
+                    if self.n_stack[i%self.num_agents] is not None and self.n_stack[i%self.num_agents] > 1:
+                        obs_queue.append(observations[agent])
 
             rew_mean_list.append(episodic_reward)
 
@@ -435,7 +447,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
         if verbose == 1:
             if (episode + 1) % 1 == 0:
                 print(episode_str, episode + 1, 'Epochs: ', epochs, ' Reward: {:.1f}'.format(episodic_reward),
-                      'Smooth Reward: {:.1f}'.format(rew_mean), ' Epsilon: {:.4f}'.format(self.agent.epsilon))
+                      'Smooth Reward: {:.1f}'.format(rew_mean), ' Epsilon: {:.4f}'.format(self.agents[0].epsilon))
 
         if verbose == 2:
             print(episode_str, episode + 1, 'Mean Reward: ', rew_mean)
