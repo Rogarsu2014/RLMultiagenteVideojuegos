@@ -1,4 +1,4 @@
-from pettingzoo.butterfly import pistonball_v6
+from pettingzoo.sisl import pursuit_v4
 
 from libs.pyRIL.RL_Agent import dqn_agent
 #from libs.pyRIL.RL_Problem.base.ValueBased import dqn_problem
@@ -24,9 +24,9 @@ else:
     print("TensorFlow is using CPU.")
 
 
-environment = pistonball_v6.parallel_env(render_mode="human", continuous=False)#, render_mode="human"
+environment = pursuit_v4.parallel_env(render_mode="human", continuous=False, n_pursuers=4, shared_reward=False)#, render_mode="human"
 environment.reset()
-env_name = "Pistonball_v6"
+env_name = "Pursuit_v4"
 num_agents_dqn = 4
 
 name = env_name + "_" + str(num_agents_dqn) + "_"
@@ -39,7 +39,7 @@ net_architecture = networks.dqn_net(dense_layers=2,
 '''
 agents = []
 for i in range(num_agents_dqn):#environment.agents:
-    agents.append(dqn_agent.Agent(learning_rate=1e-3, batch_size=128, epsilon=0.4, epsilon_decay=0.999, epsilon_min=0.15, img_input=False, state_size=164520, train_steps=10))
+    agents.append(dqn_agent.Agent(learning_rate=1e-3, batch_size=128, epsilon=0.4, epsilon_decay=0.999, epsilon_min=0.15, img_input=False, train_steps=10))
 
 if show_results:
     for i, agent in enumerate(agents):

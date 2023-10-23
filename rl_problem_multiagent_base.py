@@ -1,5 +1,6 @@
 import copy
 import numpy as np
+import cv2
 
 from collections import deque
 from abc import ABCMeta, abstractmethod
@@ -36,7 +37,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
 
             if self.state_size[i] is None:
                 if self.img_input[i]:
-                    self.state_size[i] = self.env.observation_space(self.env.agents[i]).shape
+                    self.state_size[i] = self.env.observation_space(self.env.agents[i]).shape#(50, 20, 1)
                 else:
                     self.state_size[i] = self.env.observation_space(self.env.agents[i]).shape[0]
                 agent.env_state_size = self.state_size[i]
@@ -132,12 +133,12 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                     obs_queue[j].append(observations[j])
                     obs_next_queue[j].append(observations[j])
 
+            actions = {}
             # While the episode doesn't reach a final state
             while self.env.agents:
                 if render or ((render_after is not None) and e > render_after):
                     self.env.render()
                 # this is where you would insert your policy
-                actions = {}
                 for i, agent in enumerate(self.env.agents):
                     actions[agent] = self.act_train(observations[agent], obs_queue[i%self.num_agents], i)
 
@@ -152,14 +153,15 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                         reward = discriminator.get_reward(observations, actions)[0]
                 # next_obs = np.zeros((300, 300))
                 # next_obs = self.preprocess(next_obs)  # Is made in store_experience now
-
+                next_observations = self.preprocess(next_observations)
                 # Store the experience in memory
                 for i, agent in enumerate(self.env.agents):
                     next_observations[agent], obs_next_queue[i%self.num_agents], rewards[agent], done, epochs = self.store_experience(actions[agent], done, next_observations[agent], observations[agent], obs_next_queue[i%self.num_agents],
                                                                          obs_queue[i%self.num_agents], rewards[agent], skip_states, epochs, i)
-
-                    # Replay some memories and training the agent
-                    self.agents[i%self.num_agents].replay()
+                if epochs % 25 == 0:
+                    for agent in self.agents:
+                        # Replay some memories and training the agent
+                        agent.replay()
 
                 # copy next_obs to obs
                 observations, obs_queue = self.copy_next_obs(next_observations, observations, obs_next_queue, obs_queue,0)#i = 0 por conveniencia
@@ -317,10 +319,10 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
             else:
                 next_obs = self.preprocess(next_obs_aux2)
         else:
-            next_obs = self.preprocess(next_obs)
+            next_obs = next_obs
         return done, next_obs, reward, epochs
 
-    def test(self, n_iter=10, render=True, verbose=1, callback=None, smooth_rewards=10, discriminator=None):
+    def test(self, n_iter=1, render=True, verbose=1, callback=None, smooth_rewards=10, discriminator=None):
         """ Test a trained agent using only exploitation mode on the environment.
 
         :param n_iter: (int) number of test iterations.
@@ -357,6 +359,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                         obs_queue[i%self.num_agents].append(np.zeros(observations[agent].shape))
                     obs_queue.append(observations)
 
+            actions = {}
             while self.env.agents:
                 if render:
                     self.env.render()
@@ -364,11 +367,9 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                 # Select action
                 # TODO: poner bien
                 # action = self.act(obs, obs_queue)
-                actions = {}
                 for i, agent in enumerate(self.env.agents):
                     actions[agent] = self.act(observations[agent], obs_queue[i % self.num_agents], i)
                 #action = self.act(obs, obs_queue)
-
                 prev_observations = observations
 
                 observations, rewards, terminations, truncations, infos = self.env.step(actions)
@@ -392,7 +393,6 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                 for i, agent in enumerate(self.env.agents):#Esto no entra (hay que retocarlo si entra)
                     if self.n_stack[i%self.num_agents] is not None and self.n_stack[i%self.num_agents] > 1:
                         obs_queue.append(observations[agent])
-
             rew_mean_list.append(episodic_reward)
 
             self._feedback_print(e, episodic_reward, epochs, verbose, rew_mean_list, test=True)
@@ -405,6 +405,13 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
         Preprocessing function by default does nothing to the observation.
         :param obs: (numpy nd array) Observation (state).
         """
+
+        for agent in self.env.agents:
+            #cv2.imshow("Ventana", obs[agent])
+            #cv2.waitKey(0)
+
+            obs[agent] = np.ravel(obs[agent])
+
         return obs
 
     def _clip_norm_reward(self, rew):
