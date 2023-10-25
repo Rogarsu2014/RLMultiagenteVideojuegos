@@ -1,0 +1,4 @@
+model_checkpoint_path: "net-1"
+all_model_checkpoint_paths: "net-1"
+all_model_checkpoint_timestamps: 1698232946.2454348
+last_preserved_timestamp: 1698232945.1174364

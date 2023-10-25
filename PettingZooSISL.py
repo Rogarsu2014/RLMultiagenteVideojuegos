@@ -24,7 +24,7 @@ else:
     print("TensorFlow is using CPU.")
 
 
-environment = pursuit_v4.parallel_env(render_mode="human", continuous=False, n_pursuers=4, shared_reward=False)#, render_mode="human"
+environment = pursuit_v4.parallel_env(n_evaders=30, n_pursuers=8, n_catch=2, surround=False, shared_reward=False, render_mode="human")#, render_mode="human"
 environment.reset()
 env_name = "Pursuit_v4"
 num_agents_dqn = 4
@@ -39,7 +39,7 @@ net_architecture = networks.dqn_net(dense_layers=2,
 '''
 agents = []
 for i in range(num_agents_dqn):#environment.agents:
-    agents.append(dqn_agent.Agent(learning_rate=1e-3, batch_size=128, epsilon=0.4, epsilon_decay=0.999, epsilon_min=0.15, img_input=False, train_steps=10))
+    agents.append(dqn_agent.Agent(learning_rate=1e-3, batch_size=128, epsilon=0.4, epsilon_decay=0.999, epsilon_min=0.15, img_input=False, state_size=147, train_steps=10))
 
 if show_results:
     for i, agent in enumerate(agents):
@@ -52,11 +52,11 @@ if show_results:
 problem = dqn_problem_multiagent.DQNProblemMultiAgent(environment, agents)
 
 if not show_results:
-    problem.solve(10, verbose=1, render=False)
+    problem.solve(200, verbose=1)
     hist = problem.get_histogram_metrics()
     history_utils.plot_reward_hist(hist, n_moving_average=10)
 
-problem.test(n_iter=1, verbose=1)
+problem.test(n_iter=3, verbose=1)
 '''
 #cProfile.run('re.compile(problem.test(n_iter=1, verbose=1))', sort='tottime')
 

@@ -24,7 +24,7 @@ else:
     print("TensorFlow is using CPU.")
 
 
-environment = pistonball_v6.parallel_env(render_mode="human", continuous=False)#, render_mode="human"
+environment = pistonball_v6.parallel_env(continuous=False, render_mode="human")#, render_mode="human"
 environment.reset()
 env_name = "Pistonball_v6"
 num_agents_dqn = 4
@@ -52,11 +52,11 @@ if show_results:
 problem = dqn_problem_multiagent.DQNProblemMultiAgent(environment, agents)
 
 if not show_results:
-    problem.solve(10, verbose=1, render=False)
+    problem.solve(300, verbose=1)
     hist = problem.get_histogram_metrics()
     history_utils.plot_reward_hist(hist, n_moving_average=10)
 
-problem.test(n_iter=1, verbose=1)
+problem.test(n_iter=3, verbose=1)
 '''
 #cProfile.run('re.compile(problem.test(n_iter=1, verbose=1))', sort='tottime')
 
