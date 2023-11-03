@@ -57,6 +57,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
         self.total_episodes = 0
 
         self.max_rew_mean = -2**1000  # Store the maximum value for reward mean
+
         self.histogram_metrics = []
 
     @abstractmethod
@@ -73,7 +74,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
 
 
     def solve(self, episodes, render=True, render_after=None, max_step_epi=None, skip_states=1, verbose=1,
-              discriminator=None, save_live_histogram=False, smooth_rewards=10):
+              discriminator=None, save_live_histogram=False, smooth_rewards=10, comp = False):
         """ Method for training the agent to solve the environment problem. The reinforcement learning loop is
         implemented here.
 
@@ -91,6 +92,9 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
             information will be recorded.
         :return:
         """
+        if comp:
+            self.histogram_metrics = [[] for i in range(self.num_agents + 1)]
+
         self.compile()
         # Inicializar iteraciones globales
         if discriminator is None:
@@ -116,7 +120,10 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
 
             # Init episode parameters
             observations, infos = self.env.reset()
-            episodic_reward = 0
+            if comp:
+                episodic_reward = [0] * (self.num_agents+1)
+            else:
+                episodic_reward = 0
             epochs = 0
             done = False
 
@@ -170,13 +177,24 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                 done = self._max_steps(done, epochs, max_step_epi)
 
                 values = rewards.values()
-                episodic_reward += sum(values) / len(values)
+                if comp:
+                    for i, agent in enumerate(self.env.agents):
+                        episodic_reward[i] += rewards[agent]
+                    episodic_reward[self.num_agents] += sum(values) / len(values)
+                    # Add reward to the list
+                    rew_mean_list.append(episodic_reward[self.num_agents])
+                else:
+                    episodic_reward += sum(values) / len(values)
+                    # Add reward to the list
+                    rew_mean_list.append(episodic_reward)
                 epochs += 1
                 self.global_steps += 1
 
-            # Add reward to the list
-            rew_mean_list.append(episodic_reward)
-            self.histogram_metrics.append([self.total_episodes, episodic_reward, epochs, self.agents[0].epsilon, self.global_steps])
+            if comp:
+                for i in range(self.num_agents+1):
+                    self.histogram_metrics[i].append([self.total_episodes, episodic_reward[i], epochs, self.agents[i%self.num_agents].epsilon, self.global_steps])
+            else:
+                self.histogram_metrics.append([self.total_episodes, episodic_reward, epochs, self.agents[0].epsilon, self.global_steps])
 
             if save_live_histogram:
                 if isinstance(save_live_histogram, str):
@@ -190,11 +208,14 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                 self.agents[i].copy_model_to_target()
 
             # Print log on scream
-            self._feedback_print(self.total_episodes, episodic_reward, epochs, verbose, rew_mean_list)
+            self._feedback_print(self.total_episodes, episodic_reward, epochs, verbose, rew_mean_list, comp)
             self.total_episodes += 1
 
             for i, agent in enumerate(self.agents):
-                self.agents[i].save_tensorboar_rl_histogram(self.histogram_metrics)
+                if comp:
+                    self.agents[i].save_tensorboar_rl_histogram(self.histogram_metrics[i])
+                else:
+                    self.agents[i].save_tensorboar_rl_histogram(self.histogram_metrics)
         return
 
     def copy_next_obs(self, next_obs, obs, obs_next_queue, obs_queue, i):
@@ -395,7 +416,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                         obs_queue.append(observations[agent])
             rew_mean_list.append(episodic_reward)
 
-            self._feedback_print(e, episodic_reward, epochs, verbose, rew_mean_list, test=True)
+            self._feedback_print(e, episodic_reward, epochs, verbose, rew_mean_list, comp=False, test=True)
 
         # print('Mean Reward ', epi_rew_mean / n_iter)
         self.env.close()
@@ -433,7 +454,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
             return epochs >= max_steps or done
         return done
 
-    def _feedback_print(self, episode, episodic_reward, epochs, verbose, epi_rew_list, test=False):
+    def _feedback_print(self, episode, episodic_reward, epochs, verbose, epi_rew_list, comp, test=False):
         """
         Print on terminal information about the training process.
         :param episode: (int) Current episode.
@@ -453,8 +474,12 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
             episode_str = 'Episode: '
         if verbose == 1:
             if (episode + 1) % 1 == 0:
-                print(episode_str, episode + 1, 'Epochs: ', epochs, ' Reward: {:.1f}'.format(episodic_reward),
-                      'Smooth Reward: {:.1f}'.format(rew_mean), ' Epsilon: {:.4f}'.format(self.agents[0].epsilon))
+                if comp:
+                    print(episode_str, episode + 1, 'Epochs: ', epochs, ' Reward: {:.1f}'.format(episodic_reward[self.num_agents]),
+                          'Smooth Reward: {:.1f}'.format(rew_mean), ' Epsilon: {:.4f}'.format(self.agents[0].epsilon))
+                else:
+                    print(episode_str, episode + 1, 'Epochs: ', epochs, ' Reward: {:.1f}'.format(episodic_reward),
+                          'Smooth Reward: {:.1f}'.format(rew_mean), ' Epsilon: {:.4f}'.format(self.agents[0].epsilon))
 
         if verbose == 2:
             print(episode_str, episode + 1, 'Mean Reward: ', rew_mean)
@@ -470,13 +495,13 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
     #     with open(agent_name, 'wb') as f:
     #         dill.dump(self.agent, f)
 
-    def get_histogram_metrics(self):
+    def get_histogram_metrics(self, i):
         """
         Return the history of metrics consisting on a array with rows:  [episode number, episode reward, episode epochs,
         epsilon value, global steps]
         return: (2D array)
         """
-        return np.array(self.histogram_metrics)
+        return np.array(self.histogram_metrics[i])
 
     def parseAgent(self, i):
         if i == 0:
