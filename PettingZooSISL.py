@@ -17,7 +17,7 @@ from pathlib import Path
 import json
 
 
-def plot_reward_hist(hist, n_moving_average, agent):
+def plot_reward_hist(hist, n_moving_average, agent, n_catch, shared_reward):
     x = hist[:, 0]
     y = hist[:, 1]
 
@@ -31,6 +31,8 @@ def plot_reward_hist(hist, n_moving_average, agent):
     ax.plot(x, y_mean, 'b', label="average " + str(n_moving_average) + " rewards")
 
     ax.legend(loc="upper left")
+
+    ax.set_title("Usando n_catch = "+n_catch+" y shared_reward = "+shared_reward)
 
     ax.set_ylabel('Reward')
     ax.set_xlabel('Episodes')
@@ -96,14 +98,16 @@ if show_results:
 problem = dqn_problem_multiagent.DQNProblemMultiAgent(environment, agents)
 
 if not show_results:
-    problem.solve(10, verbose=1, comp=True)
+    problem.solve(1, verbose=1, comp=True)
     for i in range(num_agents_dqn+1):
         hist = problem.get_histogram_metrics(i)
+
         num = "of agent " + str(i)
         if i == num_agents_dqn:
             num = "of all the agents"
 
-        plot_reward_hist(hist, n_moving_average=10, agent=num)
+        #Los detalles del plot hay que rellenarlos a mano
+        plot_reward_hist(hist, n_moving_average=10, agent=num, n_catch="1", shared_reward="False")
 
 problem.test(n_iter=1, verbose=1)
 '''
@@ -120,5 +124,5 @@ p.print_callers('numpy.array')  # find all the callers of isinstance.
 if not show_results:
     for i, agent in enumerate(agents):
         agent_saver.save(agent, name + "agent_" + str(i) + '_agent.json')
-'''
 
+'''
