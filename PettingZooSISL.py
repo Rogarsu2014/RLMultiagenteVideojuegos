@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 import json
 
+import dqn_agent_coop_brain
 
 def plot_reward_hist(hist, n_moving_average, agent, n_catch, shared_reward):
     x = hist[:, 0]
@@ -57,6 +58,18 @@ def moving_average(values, window):
     sma = np.convolve(values, weights, 'valid')
     return sma
 
+def greedy_multi_action(act_pred, n_actions, i, epsilon=0., n_env=1, exploration_noise=1.0):
+    actions = []
+    if np.random.rand() <= epsilon:
+        # TODO: al utilizar algoritmos normales puede fallar
+        for j in range(i):
+            action = np.random.rand(n_actions)
+            actions.append(np.argmax(action, axis=-1))
+    else:
+        for j in range(i):
+            actions.append(np.argmax(act_pred[0][j*n_actions:(j+1)*n_actions], axis=-1))
+    return actions
+
 import cProfile
 import re
 import pstats
@@ -70,10 +83,10 @@ else:
     print("TensorFlow is using CPU.")
 
 
-environment = pursuit_v4.parallel_env(n_evaders=30, n_pursuers=8, n_catch=1, surround=False, shared_reward=False)#, render_mode="human"
+environment = pursuit_v4.parallel_env(n_evaders=30, n_pursuers=8, n_catch=2, surround=False, shared_reward=True)#, render_mode="human"
 environment.reset()
 env_name = "Pursuit_v4"
-num_agents_dqn = 8
+num_agents_dqn = 1
 
 name = env_name + "_" + str(num_agents_dqn) + "_"
 
@@ -83,9 +96,13 @@ net_architecture = networks.dqn_net(dense_layers=2,
                                     n_neurons=[100, 100],
                                     dense_activation=['relu', 'relu'],)
 '''
+'''
 agents = []
 for i in range(num_agents_dqn):#environment.agents:
     agents.append(dqn_agent.Agent(learning_rate=1e-3, batch_size=128, epsilon=0.4, epsilon_decay=0.999, epsilon_min=0.15, img_input=False, state_size=147, train_steps=10))
+'''
+agents = []
+agents.append(dqn_agent_coop_brain.BrainAgent(num_agents=8,learning_rate=1e-3, batch_size=128, epsilon=0.4, epsilon_decay=0.999, epsilon_min=0.15, img_input=False, state_size=147*8, train_steps=10, train_action_selection_options=greedy_multi_action))
 
 if show_results:
     for i, agent in enumerate(agents):
@@ -98,7 +115,7 @@ if show_results:
 problem = dqn_problem_multiagent.DQNProblemMultiAgent(environment, agents)
 
 if not show_results:
-    problem.solve(1, verbose=1, comp=True)
+    problem.solve(1, verbose=1, coop=True)
     for i in range(num_agents_dqn+1):
         hist = problem.get_histogram_metrics(i)
 

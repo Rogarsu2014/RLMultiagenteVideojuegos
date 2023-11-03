@@ -74,7 +74,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
 
 
     def solve(self, episodes, render=True, render_after=None, max_step_epi=None, skip_states=1, verbose=1,
-              discriminator=None, save_live_histogram=False, smooth_rewards=10, comp = False):
+              discriminator=None, save_live_histogram=False, smooth_rewards=10, comp = False, coop = False):
         """ Method for training the agent to solve the environment problem. The reinforcement learning loop is
         implemented here.
 
@@ -146,8 +146,13 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                 if render or ((render_after is not None) and e > render_after):
                     self.env.render()
                 # this is where you would insert your policy
-                for i, agent in enumerate(self.env.agents):
-                    actions[agent] = self.act_train(observations[agent], obs_queue[i%self.num_agents], i)
+                if coop:
+                    all_actions = self.act_train_all(observations)
+                    for i, agent in enumerate(self.env.agents):
+                        actions[agent] = all_actions[i]
+                else:
+                    for i, agent in enumerate(self.env.agents):
+                        actions[agent] = self.act_train(observations[agent], obs_queue[i%self.num_agents], i)
 
                 next_observations, rewards, terminations, truncations, infos = self.env.step(actions)
                 # Agent act in the environment
@@ -510,4 +515,18 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
             return 0
 
 
-
+    def act_train_all(self, obs):
+        """
+        Make the agent select an action in training mode given an observation. Use an input depending if the
+        observations are stacked in
+        time or not.
+        :param obs: (numpy nd array) observation (state).
+        :param obs_queue: (numpy nd array) List of observation (states) in sequential time steps.
+        :return: (int or [floats]) int if actions are discrete or numpy array of float of action shape if actions are
+            continuous)
+        """
+        obs_aux = []
+        for agent in self.env.agents:
+            obs_aux.append(obs[agent])
+        actions = self.agents[0].act_train(obs_aux, len(self.env.agents))
+        return actions
