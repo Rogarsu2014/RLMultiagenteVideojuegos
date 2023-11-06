@@ -102,7 +102,7 @@ for i in range(num_agents_dqn):#environment.agents:
     agents.append(dqn_agent.Agent(learning_rate=1e-3, batch_size=128, epsilon=0.4, epsilon_decay=0.999, epsilon_min=0.15, img_input=False, state_size=147, train_steps=10))
 '''
 agents = []
-agents.append(dqn_agent_coop_brain.BrainAgent(num_agents=8,learning_rate=1e-3, batch_size=128, epsilon=0.4, epsilon_decay=0.999, epsilon_min=0.15, img_input=False, state_size=147*8, train_steps=10, train_action_selection_options=greedy_multi_action))
+agents.append(dqn_agent_coop_brain.BrainAgent(action_space_size=environment.action_space(environment.agents[0]).n, num_agents=8,learning_rate=1e-3, batch_size=128, epsilon=0.4, epsilon_decay=0.999, epsilon_min=0.15, img_input=False, state_size=147*8, train_steps=10, train_action_selection_options=greedy_multi_action))
 
 if show_results:
     for i, agent in enumerate(agents):

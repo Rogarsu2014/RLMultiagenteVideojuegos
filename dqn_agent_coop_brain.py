@@ -18,7 +18,7 @@ class BrainAgent(DQNAgentSuper):
     """
     Deep Q Network Agent extend RL_Agent.base.DQN_base.dqn_agent_base.DQNAgentSuper
     """
-    def __init__(self,num_agents, learning_rate=1e-3, batch_size=32, epsilon=1.0, epsilon_decay=0.9999, epsilon_min=0.1,
+    def __init__(self, action_space_size, num_agents, learning_rate=1e-3, batch_size=32, epsilon=1.0, epsilon_decay=0.9999, epsilon_min=0.1,
                  gamma=0.95, n_stack=1, img_input=False, state_size=None, memory_size=5000, train_steps=1,
                  tensorboard_dir=None, net_architecture=None,
                  train_action_selection_options=action_selection_options.greedy_action,
@@ -67,6 +67,7 @@ class BrainAgent(DQNAgentSuper):
         self.agent_name = agent_globals.names["dqn"]
 
         self.num_agents = num_agents
+        self.action_space_size = action_space_size
 
     def build_agent(self, n_actions, state_size=4, batch_size=32, epsilon_min=0.1, epsilon_decay=0.999995,
                  learning_rate=1e-3, gamma=0.95, epsilon=1., stack=False, img_input=False,
@@ -154,3 +155,34 @@ class BrainAgent(DQNAgentSuper):
         actions = action
 
         return actions
+
+
+    def load_memories(self):
+        """
+        Load a batch of memories
+        :return: Current Observation, Action, Reward, Next Observation, episode finished flag
+        """
+        tree_idx, minibatch, is_weights_mb = self.memory.sample(self.batch_size)
+        obs, action, reward, next_obs, done = minibatch[:, 0], \
+                                              minibatch[:, 1], \
+                                              minibatch[:, 2], \
+                                              minibatch[:, 3], \
+                                              minibatch[:, 4]
+
+        obs = np.array([np.array(y).reshape(self.state_size) for y in obs])
+        #obs = np.array([x.reshape(self.state_size) for x in obs])
+        next_obs = np.array([np.array(y).reshape(self.state_size) for y in next_obs])
+        #next_obs = np.array([x.reshape(self.state_size) for x in next_obs])
+
+        reward = np.array([np.mean(list(d.values())) for d in reward])
+
+        #action = np.array([list(action[i].values()) for i in range(len(action))])
+        action_indices_mapping = [i * self.action_space_size for i in range(len(action[0]))]
+
+
+        action = np.array([np.add(list(action[i].values()), action_indices_mapping) for i in range(len(action))])
+
+        if self.memory.memory_type == "per":
+            is_weights_mb = np.array([x[0] for x in is_weights_mb])
+
+        return obs, action, reward, next_obs, done, tree_idx, is_weights_mb
