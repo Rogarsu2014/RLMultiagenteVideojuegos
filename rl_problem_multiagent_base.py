@@ -167,8 +167,10 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                 # next_obs = self.preprocess(next_obs)  # Is made in store_experience now
                 next_observations = self.preprocess(next_observations, False)
                 # Store the experience in memory
+
                 if coop:
-                    next_observations, obs_next_queue, rewards, done, epochs = self.store_experience(actions, done, next_observations, observations, obs_next_queue, obs_queue, rewards, skip_states, epochs, 0, coop)
+                    if len(self.env.agents) != 0:
+                        next_observations, obs_next_queue, rewards, done, epochs = self.store_experience(actions, done, next_observations, observations, obs_next_queue, obs_queue, rewards, skip_states, epochs, 0, coop)
                 else:
                     for i, agent in enumerate(self.env.agents):
                         next_observations[agent], obs_next_queue[i%self.num_agents], rewards[agent], done, epochs = self.store_experience(actions[agent], done, next_observations[agent], observations[agent], obs_next_queue[i%self.num_agents],
@@ -514,13 +516,16 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
     #     with open(agent_name, 'wb') as f:
     #         dill.dump(self.agent, f)
 
-    def get_histogram_metrics(self, i):
+    def get_histogram_metrics(self, i, comp):
         """
         Return the history of metrics consisting on a array with rows:  [episode number, episode reward, episode epochs,
         epsilon value, global steps]
         return: (2D array)
         """
-        return np.array(self.histogram_metrics[i])
+        if comp:
+            return np.array(self.histogram_metrics[i])
+        else:
+            return np.array(self.histogram_metrics)
 
     def parseAgent(self, i):
         if i == 0:

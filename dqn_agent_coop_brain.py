@@ -174,7 +174,8 @@ class BrainAgent(DQNAgentSuper):
         next_obs = np.array([np.array(y).reshape(self.state_size) for y in next_obs])
         #next_obs = np.array([x.reshape(self.state_size) for x in next_obs])
 
-        reward = np.array([np.mean(list(d.values())) for d in reward])
+        #reward = np.array([np.mean(list(d.values())) for d in reward])
+        reward = np.array([list(d.values()) for d in reward])
 
         #action = np.array([list(action[i].values()) for i in range(len(action))])
         action_indices_mapping = [i * self.action_space_size for i in range(len(action[0]))]

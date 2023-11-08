@@ -82,27 +82,46 @@ if gpu_devices:
 else:
     print("TensorFlow is using CPU.")
 
+show_results = False
+coop = True
+comp = False
+n_catch = 2
+shared_reward = False
+num_agents_dqn = 1
 
-environment = pursuit_v4.parallel_env(n_evaders=30, n_pursuers=8, n_catch=2, surround=False, shared_reward=True)#, render_mode="human"
+environment = pursuit_v4.parallel_env(n_evaders=30, n_pursuers=8, n_catch=n_catch, surround=False, shared_reward=shared_reward)#, render_mode="human"
 environment.reset()
 env_name = "Pursuit_v4"
-num_agents_dqn = 1
+
 
 name = env_name + "_" + str(num_agents_dqn) + "_"
 
-show_results = False
+if coop:
+    name += "coop_"
+elif comp:
+    name += "comp_"
+
+
+
+
 '''
 net_architecture = networks.dqn_net(dense_layers=2,
                                     n_neurons=[100, 100],
                                     dense_activation=['relu', 'relu'],)
 '''
-'''
+
 agents = []
-for i in range(num_agents_dqn):#environment.agents:
-    agents.append(dqn_agent.Agent(learning_rate=1e-3, batch_size=128, epsilon=0.4, epsilon_decay=0.999, epsilon_min=0.15, img_input=False, state_size=147, train_steps=10))
-'''
-agents = []
-agents.append(dqn_agent_coop_brain.BrainAgent(action_space_size=environment.action_space(environment.agents[0]).n, num_agents=8,learning_rate=1e-3, batch_size=128, epsilon=0.4, epsilon_decay=0.999, epsilon_min=0.15, img_input=False, state_size=147*8, train_steps=10, train_action_selection_options=greedy_multi_action))
+if coop:
+    agents.append(dqn_agent_coop_brain.BrainAgent(action_space_size=environment.action_space(environment.agents[0]).n,
+                                                  num_agents=8, learning_rate=1e-3, batch_size=128, epsilon=0.4,
+                                                  epsilon_decay=0.999, epsilon_min=0.15, img_input=False,
+                                                  state_size=147 * 8, train_steps=10,
+                                                  train_action_selection_options=greedy_multi_action))
+else:
+    for i in range(num_agents_dqn):#environment.agents:
+        agents.append(dqn_agent.Agent(learning_rate=1e-3, batch_size=128, epsilon=0.4, epsilon_decay=0.999, epsilon_min=0.15, img_input=False, state_size=147, train_steps=10))
+
+
 
 if show_results:
     for i, agent in enumerate(agents):
@@ -115,18 +134,35 @@ if show_results:
 problem = dqn_problem_multiagent.DQNProblemMultiAgent(environment, agents)
 
 if not show_results:
-    problem.solve(1, verbose=1, coop=True)
-    for i in range(num_agents_dqn+1):
-        hist = problem.get_histogram_metrics(i)
+    problem.solve(50, verbose=1, comp=comp, coop=coop)
+    if comp:
+        for i in range(num_agents_dqn+1):
+            hist = problem.get_histogram_metrics(i, comp)
 
-        num = "of agent " + str(i)
-        if i == num_agents_dqn:
-            num = "of all the agents"
+            num = "of agent " + str(i)
+            if i == num_agents_dqn:
+                num = "of all the agents"
 
-        #Los detalles del plot hay que rellenarlos a mano
-        plot_reward_hist(hist, n_moving_average=10, agent=num, n_catch="1", shared_reward="False")
+            #Los detalles del plot hay que rellenarlos a mano
+            plot_reward_hist(hist, n_moving_average=10, agent=num, n_catch=str(n_catch), shared_reward=str(shared_reward))
+    elif coop:
+        hist = problem.get_histogram_metrics(0, comp)
+        num = "of the Coop Brain"
+        plot_reward_hist(hist, n_moving_average=10, agent=num, n_catch=str(n_catch), shared_reward=str(shared_reward))
+    else:
+        hist = problem.get_histogram_metrics(0, comp)
+        num = ""
+        plot_reward_hist(hist, n_moving_average=10, agent=num, n_catch=str(n_catch), shared_reward=str(shared_reward))
 
-problem.test(n_iter=1, verbose=1)
+problem.test(n_iter=3, verbose=1, coop=coop)
+
+
+if not show_results:
+    for i, agent in enumerate(agents):
+        agent_saver.save(agent, name + "agent_" + str(i) + '_agent.json')
+
+
+
 '''
 #cProfile.run('re.compile(problem.test(n_iter=1, verbose=1))', sort='tottime')
 
@@ -137,9 +173,5 @@ pr.disable()
 p = pstats.Stats(pr)           # create pstats obj based on profiler above.
 p.print_callers('numpy.array')  # find all the callers of isinstance.
 '''
-'''
-if not show_results:
-    for i, agent in enumerate(agents):
-        agent_saver.save(agent, name + "agent_" + str(i) + '_agent.json')
 
-'''
+
