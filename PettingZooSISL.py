@@ -88,8 +88,9 @@ comp = False
 n_catch = 2
 shared_reward = False
 num_agents_dqn = 1
+num_pursuers = 8
 
-environment = pursuit_v4.parallel_env(n_evaders=30, n_pursuers=8, n_catch=n_catch, surround=False, shared_reward=shared_reward)#, render_mode="human"
+environment = pursuit_v4.parallel_env(n_evaders=30, n_pursuers=num_pursuers, n_catch=n_catch, surround=False, shared_reward=shared_reward)#, render_mode="human"
 environment.reset()
 env_name = "Pursuit_v4"
 
@@ -113,9 +114,9 @@ net_architecture = networks.dqn_net(dense_layers=2,
 agents = []
 if coop:
     agents.append(dqn_agent_coop_brain.BrainAgent(action_space_size=environment.action_space(environment.agents[0]).n,
-                                                  num_agents=8, learning_rate=1e-3, batch_size=128, epsilon=0.4,
+                                                  num_pur=num_pursuers, learning_rate=1e-3, batch_size=128, epsilon=0.4,
                                                   epsilon_decay=0.999, epsilon_min=0.15, img_input=False,
-                                                  state_size=147 * 8, train_steps=10,
+                                                  state_size=147 * num_pursuers, train_steps=10,
                                                   train_action_selection_options=greedy_multi_action))
 else:
     for i in range(num_agents_dqn):#environment.agents:
@@ -134,7 +135,7 @@ if show_results:
 problem = dqn_problem_multiagent.DQNProblemMultiAgent(environment, agents)
 
 if not show_results:
-    problem.solve(50, verbose=1, comp=comp, coop=coop)
+    problem.solve(100, verbose=1, comp=comp, coop=coop)
     if comp:
         for i in range(num_agents_dqn+1):
             hist = problem.get_histogram_metrics(i, comp)

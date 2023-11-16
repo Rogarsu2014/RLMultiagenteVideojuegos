@@ -157,7 +157,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                 next_observations, rewards, terminations, truncations, infos = self.env.step(actions)
                 # Agent act in the environment
                 #next_obs, reward, terminated, truncated, _ = self.env.step(action)
-                #done = terminated or truncated
+                #done = any(terminations.values()) or any(truncations.values())
                 if discriminator is not None:#Esto no entra (hay que retocarlo si entra)
                     if discriminator.stack:
                         reward = discriminator.get_reward(obs_queue, actions)[0]
@@ -170,7 +170,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
 
                 if coop:
                     if len(self.env.agents) != 0:
-                        next_observations, obs_next_queue, rewards, done, epochs = self.store_experience(actions, done, next_observations, observations, obs_next_queue, obs_queue, rewards, skip_states, epochs, 0, coop)
+                        next_observations, obs_next_queue, rewards, done, epochs = self.store_experience(actions.copy(), done, next_observations, observations, obs_next_queue, obs_queue, rewards, skip_states, epochs, 0, coop)
                 else:
                     for i, agent in enumerate(self.env.agents):
                         next_observations[agent], obs_next_queue[i%self.num_agents], rewards[agent], done, epochs = self.store_experience(actions[agent], done, next_observations[agent], observations[agent], obs_next_queue[i%self.num_agents],
@@ -243,6 +243,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
         Make the agent select an action in training mode given an observation. Use an input depending if the
         observations are stacked in
         time or not.
+        :param i:
         :param obs: (numpy nd array) observation (state).
         :param obs_queue: (numpy nd array) List of observation (states) in sequential time steps.
         :return: (int or [floats]) int if actions are discrete or numpy array of float of action shape if actions are
@@ -545,5 +546,5 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
             continuous)
         """
         obs_aux = self.preprocess(obs, True)
-        actions = self.agents[0].act_train(obs_aux, len(self.env.agents))
-        return actions, obs_aux
+        action_aux = self.agents[0].act_train(obs_aux, len(self.env.agents))
+        return action_aux, obs_aux

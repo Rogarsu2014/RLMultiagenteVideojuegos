@@ -18,7 +18,7 @@ class BrainAgent(DQNAgentSuper):
     """
     Deep Q Network Agent extend RL_Agent.base.DQN_base.dqn_agent_base.DQNAgentSuper
     """
-    def __init__(self, action_space_size, num_agents, learning_rate=1e-3, batch_size=32, epsilon=1.0, epsilon_decay=0.9999, epsilon_min=0.1,
+    def __init__(self, action_space_size, num_pur, learning_rate=1e-3, batch_size=32, epsilon=1.0, epsilon_decay=0.9999, epsilon_min=0.1,
                  gamma=0.95, n_stack=1, img_input=False, state_size=None, memory_size=5000, train_steps=1,
                  tensorboard_dir=None, net_architecture=None,
                  train_action_selection_options=action_selection_options.greedy_action,
@@ -66,7 +66,7 @@ class BrainAgent(DQNAgentSuper):
                          )
         self.agent_name = agent_globals.names["dqn"]
 
-        self.num_agents = num_agents
+        self.num_pursuers_coop_brain = num_pur
         self.action_space_size = action_space_size
 
     def build_agent(self, n_actions, state_size=4, batch_size=32, epsilon_min=0.1, epsilon_decay=0.999995,
@@ -127,7 +127,7 @@ class BrainAgent(DQNAgentSuper):
                           loss=[dqn_loss])
         else:
             if not define_output_layer:
-                model.add(Dense(self.n_actions*self.num_agents, activation='linear'))
+                model.add(Dense(self.n_actions*self.num_pursuers_coop_brain, activation='linear'))
 
             model = DQNNet(net=model, tensorboard_dir=self.tensorboard_dir)
             optimizer = tf.keras.optimizers.Adam(self.learning_rate)
@@ -151,8 +151,7 @@ class BrainAgent(DQNAgentSuper):
         obs = self._format_obs_act(obs)
         act_pred = self.model.predict(obs)
 
-        action = self.train_action_selection_options(act_pred, self.n_actions, i, epsilon=self.epsilon, n_env=1)
-        actions = action
+        actions = self.train_action_selection_options(act_pred, self.n_actions, i, epsilon=self.epsilon, n_env=1)
 
         return actions
 
