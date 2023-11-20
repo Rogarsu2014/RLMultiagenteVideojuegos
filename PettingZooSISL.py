@@ -1,5 +1,7 @@
 from pettingzoo.sisl import pursuit_v4
 
+from Wrappers.Env_wrappers import pursuit_v_evaders
+
 from libs.pyRIL.RL_Agent import dqn_agent
 #from libs.pyRIL.RL_Problem.base.ValueBased import dqn_problem
 from libs.pyRIL.RL_Agent.base.utils import agent_saver
@@ -75,14 +77,21 @@ else:
     print("TensorFlow is using CPU.")
 
 show_results = False
-coop = True
+coop = False
 comp = False
-n_catch = 2
+comp_hardcore = True
+n_catch = 1
 shared_reward = False
-num_agents_dqn = 1
+num_agents_dqn = 2
 num_pursuers = 8
+num_evaders_hardcore = 8
 
-environment = pursuit_v4.parallel_env(n_evaders=30, n_pursuers=num_pursuers, n_catch=n_catch, surround=False, shared_reward=shared_reward)#, render_mode="human"
+if comp_hardcore:
+    environment = pursuit_v_evaders.parallel_env(n_evaders=num_evaders_hardcore, n_pursuers=num_pursuers, n_catch=n_catch, surround=False,
+                                          shared_reward=shared_reward)  # , render_mode="human"
+else:
+    environment = pursuit_v4.parallel_env(n_evaders=30, n_pursuers=num_pursuers, n_catch=n_catch, surround=False, shared_reward=shared_reward)#, render_mode="human"
+
 environment.reset()
 env_name = "Pursuit_v4"
 
@@ -93,6 +102,8 @@ if coop:
     name += "coop_"
 elif comp:
     name += "comp_"
+elif comp_hardcore:
+    name += "comp_hardcore"
 
 
 

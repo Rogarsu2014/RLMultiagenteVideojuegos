@@ -74,7 +74,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
 
 
     def solve(self, episodes, render=True, render_after=None, max_step_epi=None, skip_states=1, verbose=1,
-              discriminator=None, save_live_histogram=False, smooth_rewards=10, comp = False, coop = False):
+              discriminator=None, save_live_histogram=False, smooth_rewards=10, comp = False, coop = False, comp_harcore = False):
         """ Method for training the agent to solve the environment problem. The reinforcement learning loop is
         implemented here.
 
@@ -92,7 +92,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
             information will be recorded.
         :return:
         """
-        if comp:
+        if comp or comp_harcore:
             self.histogram_metrics = [[] for i in range(self.num_agents + 1)]
 
         self.compile()
@@ -119,8 +119,13 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
         for e in range(episodes):
 
             # Init episode parameters
-            observations, infos = self.env.reset()
-            if comp:
+            if comp_harcore:
+                observations, infos, observations_evaders = self.env.reset()
+            else:
+                observations, infos = self.env.reset()
+
+
+            if comp or comp_harcore:
                 episodic_reward = [0] * (self.num_agents+1)
             else:
                 episodic_reward = 0
@@ -129,6 +134,8 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
 
             # Reading initial state
             observations = self.preprocess(observations, False)
+            if comp_harcore:
+                observations_evaders = self.preprocess(observations_evaders, False)
             # obs = np.zeros((300, 300))
 
             # Stacking inputs
@@ -141,6 +148,9 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                     obs_next_queue[j].append(observations[j])
 
             actions = {}
+            if comp_harcore:
+                actions_evaders = {}
+
             # While the episode doesn't reach a final state
             while self.env.agents:
                 if render or ((render_after is not None) and e > render_after):
@@ -150,11 +160,19 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                     all_actions, observations = self.act_train_all(observations)
                     for i, agent in enumerate(self.env.agents):
                         actions[agent] = all_actions[i]
+                elif comp_harcore:
+                    for i, agent in enumerate(self.env.agents):
+                        actions[agent] = self.act_train(observations[agent], obs_queue[0], 0, True)
+                    for i, evader in enumerate(self.env.evader):
+                        actions_evaders[evader] = self.act_train(observations[evader], obs_queue[0], 1, True)
                 else:
                     for i, agent in enumerate(self.env.agents):
-                        actions[agent] = self.act_train(observations[agent], obs_queue[i%self.num_agents], i)
+                        actions[agent] = self.act_train(observations[agent], obs_queue[i%self.num_agents], i, False)
 
-                next_observations, rewards, terminations, truncations, infos = self.env.step(actions)
+                if comp_harcore:
+                    next_observations, rewards, terminations, truncations, infos, next_observations_evaders, rewards_evaders = self.env.step(actions)
+                else:
+                    next_observations, rewards, terminations, truncations, infos = self.env.step(actions)
                 # Agent act in the environment
                 #next_obs, reward, terminated, truncated, _ = self.env.step(action)
                 #done = any(terminations.values()) or any(truncations.values())
@@ -171,6 +189,13 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                 if coop:
                     if len(self.env.agents) != 0:
                         next_observations, obs_next_queue, rewards, done, epochs = self.store_experience(actions.copy(), done, next_observations, observations, obs_next_queue, obs_queue, rewards, skip_states, epochs, 0, coop)
+                elif comp_harcore:
+                    for i, agent in enumerate(self.env.agents):
+                        next_observations[agent], obs_next_queue[0], rewards[agent], done, epochs = self.store_experience(actions[agent], done, next_observations[agent], observations[agent], obs_next_queue[0],
+                                                                            obs_queue[0], rewards[agent], skip_states, epochs, 0, False, True)
+                    for i, evader in enumerate(self.env.evader):
+                        next_observations_evaders[evader], obs_next_queue[1], rewards_evaders[evader], done, epochs = self.store_experience(actions_evaders[evader], done, next_observations_evaders[evader], observations_evaders[evader], obs_next_queue[0],
+                                                                            obs_queue[0], rewards_evaders[evader], skip_states, epochs, 1, False, True)
                 else:
                     for i, agent in enumerate(self.env.agents):
                         next_observations[agent], obs_next_queue[i%self.num_agents], rewards[agent], done, epochs = self.store_experience(actions[agent], done, next_observations[agent], observations[agent], obs_next_queue[i%self.num_agents],
@@ -183,6 +208,10 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                 # copy next_obs to obs
                 observations, obs_queue = self.copy_next_obs(next_observations, observations, obs_next_queue, obs_queue,0)#i = 0 por conveniencia
 
+                if comp_harcore:
+                    observations_evaders, obs_queue = self.copy_next_obs(next_observations_evaders, observations_evaders, obs_next_queue,
+                                                                 obs_queue, 0)  # i = 0 por conveniencia
+
                 # If max steps value is reached the episode is finished
                 done = self._max_steps(done, epochs, max_step_epi)
 
@@ -193,6 +222,15 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                     episodic_reward[self.num_agents] += sum(values) / len(values)
                     # Add reward to the list
                     rew_mean_list.append(episodic_reward[self.num_agents])
+                elif comp_harcore:
+                    values_evaders = rewards_evaders.values()
+                    for agent in range(self.env.agents):
+                        episodic_reward[0] += rewards[agent]
+                    for evader in range(self.env.evaders):
+                        episodic_reward[1] += rewards_evaders[evader]
+                    episodic_reward[self.num_agents] += (sum(values) / len(values)) + (sum(values_evaders) / len(values_evaders))
+                    # Add reward to the list
+                    rew_mean_list.append(episodic_reward[self.num_agents])
                 else:
                     episodic_reward += sum(values) / len(values)
                     # Add reward to the list
@@ -200,7 +238,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                 epochs += 1
                 self.global_steps += 1
 
-            if comp:
+            if comp or comp_harcore:
                 for i in range(self.num_agents+1):
                     self.histogram_metrics[i].append([self.total_episodes, episodic_reward[i], epochs, self.agents[i%self.num_agents].epsilon, self.global_steps])
             else:
@@ -222,7 +260,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
             self.total_episodes += 1
 
             for i, agent in enumerate(self.agents):
-                if comp:
+                if comp or comp_harcore:
                     self.agents[i].save_tensorboar_rl_histogram(self.histogram_metrics[i])
                 else:
                     self.agents[i].save_tensorboar_rl_histogram(self.histogram_metrics)
@@ -238,7 +276,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
             obs = next_obs
         return obs, obs_queue
 
-    def act_train(self, obs, obs_queue, i):
+    def act_train(self, obs, obs_queue, i, comp_hardcore):
         """
         Make the agent select an action in training mode given an observation. Use an input depending if the
         observations are stacked in
@@ -252,10 +290,13 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
         if self.n_stack[i%self.num_agents] is not None and self.n_stack[i%self.num_agents] > 1:
             action = self.agents[i%self.num_agents].act_train(np.array(obs_queue))
         else:
-            action = self.agents[i%self.num_agents].act_train(obs)
+            if comp_hardcore:
+                action = self.agents[i].act_train(obs)
+            else:
+                action = self.agents[i%self.num_agents].act_train(obs)
         return action
 
-    def act(self, obs, obs_queue, i):
+    def act(self, obs, obs_queue, i, comp_hardcore):
         """
         Make the agent select an action in exploitation mode given an observation. Use an input depending if the
         observations are stacked.
@@ -268,10 +309,13 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
         if self.n_stack[i%self.num_agents] is not None and self.n_stack[i%self.num_agents] > 1:
             action = self.agents[i%self.num_agents].act(np.array(obs_queue))
         else:
-            action = self.agents[i%self.num_agents].act(obs)
+            if comp_hardcore:
+                action = self.agents[i].act_train(obs)
+            else:
+                action = self.agents[i%self.num_agents].act(obs)
         return action
 
-    def store_experience(self, action, done, next_obs, obs, obs_next_queue, obs_queue, reward, skip_states, epochs, i, coop):
+    def store_experience(self, action, done, next_obs, obs, obs_next_queue, obs_queue, reward, skip_states, epochs, i, coop, comp_hardcore):
         """
         Method for store a experience in the agent memory. A standard experience consist of a tuple (observation,
         action, reward, next observation, done flag).
@@ -306,6 +350,8 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
         else:
             if coop:
                 self.agents[i%self.num_agents].remember(obs, action, self.clip_norm_reward(reward), self.preprocess(next_obs, coop), done)
+            elif comp_hardcore:
+                self.agents[i].remember(obs, action, self.clip_norm_reward(reward), next_obs, done)
             else:
                 self.agents[i % self.num_agents].remember(obs, action, self.clip_norm_reward(reward), next_obs, done)
         return next_obs, obs_next_queue, reward, done, epochs
@@ -408,7 +454,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                         actions[agent] = all_actions[i]
                 else:
                     for i, agent in enumerate(self.env.agents):
-                        actions[agent] = self.act(observations[agent], obs_queue[i % self.num_agents], i)
+                        actions[agent] = self.act(observations[agent], obs_queue[i % self.num_agents], i, False)
                 #action = self.act(obs, obs_queue)
                 prev_observations = observations
 
