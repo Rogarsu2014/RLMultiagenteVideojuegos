@@ -2,21 +2,16 @@ from pettingzoo.sisl import pursuit_v4
 
 from libs.pyRIL.RL_Agent import dqn_agent
 #from libs.pyRIL.RL_Problem.base.ValueBased import dqn_problem
-from libs.pyRIL.RL_Agent.base.utils import agent_saver, history_utils
+from libs.pyRIL.RL_Agent.base.utils import agent_saver
 
-from RL_Agent.base.utils.networks import networks
-
-import dqn_problem_multiagent
+from Wrappers import dqn_problem_multiagent, dqn_agent_coop_brain
 
 import os
 import tensorflow as tf
 
 import numpy as np
 import matplotlib.pyplot as plt
-from pathlib import Path
-import json
 
-import dqn_agent_coop_brain
 
 def plot_reward_hist(hist, n_moving_average, agent, n_catch, shared_reward):
     x = hist[:, 0]
@@ -70,9 +65,6 @@ def greedy_multi_action(act_pred, n_actions, i, epsilon=0., n_env=1, exploration
             actions.append(np.argmax(act_pred[0][j*n_actions:(j+1)*n_actions], axis=-1))
     return actions
 
-import cProfile
-import re
-import pstats
 
 # Get the list of available GPU devices
 gpu_devices = tf.config.list_physical_devices('GPU')
@@ -135,7 +127,7 @@ if show_results:
 problem = dqn_problem_multiagent.DQNProblemMultiAgent(environment, agents)
 
 if not show_results:
-    problem.solve(100, verbose=1, comp=comp, coop=coop)
+    problem.solve(50, verbose=1, comp=comp, coop=coop)
     if comp:
         for i in range(num_agents_dqn+1):
             hist = problem.get_histogram_metrics(i, comp)

@@ -1,4 +1,4 @@
-from rl_problem_multiagent_base import RLProblemMultiAgentSuper
+from Wrappers.rl_problem_multiagent_base import RLProblemMultiAgentSuper
 
 class DQNProblemMultiAgent(RLProblemMultiAgentSuper):
     """

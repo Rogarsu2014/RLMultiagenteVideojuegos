@@ -4,16 +4,10 @@ from libs.pyRIL.RL_Agent import dqn_agent
 #from libs.pyRIL.RL_Problem.base.ValueBased import dqn_problem
 from libs.pyRIL.RL_Agent.base.utils import agent_saver, history_utils
 
-from RL_Agent.base.utils.networks import networks
-
-import dqn_problem_multiagent
+from Wrappers import dqn_problem_multiagent
 
 import os
 import tensorflow as tf
-
-import cProfile
-import re
-import pstats
 
 # Get the list of available GPU devices
 gpu_devices = tf.config.list_physical_devices('GPU')
