@@ -138,7 +138,7 @@ if show_results:
 problem = dqn_problem_multiagent.DQNProblemMultiAgent(environment, agents)
 
 if not show_results:
-    problem.solve(50, verbose=1, comp=comp, coop=coop)
+    problem.solve(50, verbose=1, comp=comp, coop=coop, comp_harcore=comp_hardcore)
     if comp:
         for i in range(num_agents_dqn+1):
             hist = problem.get_histogram_metrics(i, comp)
@@ -158,7 +158,7 @@ if not show_results:
         num = ""
         plot_reward_hist(hist, n_moving_average=10, agent=num, n_catch=str(n_catch), shared_reward=str(shared_reward))
 
-problem.test(n_iter=3, verbose=1, coop=coop)
+problem.test(n_iter=3, verbose=1, coop=coop, comp_hardcore=comp_hardcore)
 
 
 if not show_results:

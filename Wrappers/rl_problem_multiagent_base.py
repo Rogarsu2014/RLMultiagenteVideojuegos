@@ -133,9 +133,9 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
             done = False
 
             # Reading initial state
-            observations = self.preprocess(observations, False)
+            observations = self.preprocess(observations, False, False)
             if comp_harcore:
-                observations_evaders = self.preprocess(observations_evaders, False)
+                observations_evaders = self.preprocess(observations_evaders, False, True)
             # obs = np.zeros((300, 300))
 
             # Stacking inputs
@@ -163,14 +163,17 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                 elif comp_harcore:
                     for i, agent in enumerate(self.env.agents):
                         actions[agent] = self.act_train(observations[agent], obs_queue[0], 0, True)
-                    for i, evader in enumerate(self.env.evader):
-                        actions_evaders[evader] = self.act_train(observations[evader], obs_queue[0], 1, True)
+                    for i, evader in enumerate(self.env.aec_env.env.env.evaders):
+                        actions_evaders[evader] = self.act_train(observations_evaders[evader], obs_queue[0], 1, True)
                 else:
                     for i, agent in enumerate(self.env.agents):
                         actions[agent] = self.act_train(observations[agent], obs_queue[i%self.num_agents], i, False)
 
                 if comp_harcore:
-                    next_observations, rewards, terminations, truncations, infos, next_observations_evaders, rewards_evaders = self.env.step(actions)
+                    next_observations, rewards, terminations, truncations, infos = self.env.step(actions)
+                    next_observations_evaders, rewards_evaders = self.env.step_evaders(actions_evaders)
+
+                    next_observations_evaders = self.preprocess(next_observations_evaders, False, True)
                 else:
                     next_observations, rewards, terminations, truncations, infos = self.env.step(actions)
                 # Agent act in the environment
@@ -183,7 +186,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                         reward = discriminator.get_reward(observations, actions)[0]
                 # next_obs = np.zeros((300, 300))
                 # next_obs = self.preprocess(next_obs)  # Is made in store_experience now
-                next_observations = self.preprocess(next_observations, False)
+                next_observations = self.preprocess(next_observations, False, False)
                 # Store the experience in memory
 
                 if coop:
@@ -193,7 +196,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                     for i, agent in enumerate(self.env.agents):
                         next_observations[agent], obs_next_queue[0], rewards[agent], done, epochs = self.store_experience(actions[agent], done, next_observations[agent], observations[agent], obs_next_queue[0],
                                                                             obs_queue[0], rewards[agent], skip_states, epochs, 0, False, True)
-                    for i, evader in enumerate(self.env.evader):
+                    for i, evader in enumerate(self.env.aec_env.env.env.evaders):
                         next_observations_evaders[evader], obs_next_queue[1], rewards_evaders[evader], done, epochs = self.store_experience(actions_evaders[evader], done, next_observations_evaders[evader], observations_evaders[evader], obs_next_queue[0],
                                                                             obs_queue[0], rewards_evaders[evader], skip_states, epochs, 1, False, True)
                 else:
@@ -224,9 +227,9 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                     rew_mean_list.append(episodic_reward[self.num_agents])
                 elif comp_harcore:
                     values_evaders = rewards_evaders.values()
-                    for agent in range(self.env.agents):
+                    for agent in self.env.agents:
                         episodic_reward[0] += rewards[agent]
-                    for evader in range(self.env.evaders):
+                    for evader in self.env.aec_env.env.env.evaders:
                         episodic_reward[1] += rewards_evaders[evader]
                     episodic_reward[self.num_agents] += (sum(values) / len(values)) + (sum(values_evaders) / len(values_evaders))
                     # Add reward to the list
@@ -349,7 +352,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
             self.agents[i%self.num_agents].remember(obs_satck, action, self.clip_norm_reward(reward), obs_next_stack, done)
         else:
             if coop:
-                self.agents[i%self.num_agents].remember(obs, action, self.clip_norm_reward(reward), self.preprocess(next_obs, coop), done)
+                self.agents[i%self.num_agents].remember(obs, action, self.clip_norm_reward(reward), self.preprocess(next_obs, coop, False), done)
             elif comp_hardcore:
                 self.agents[i].remember(obs, action, self.clip_norm_reward(reward), next_obs, done)
             else:
@@ -388,17 +391,17 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                 done = done_aux
 
             if self.img_input:
-                next_obs_aux2 = self.preprocess(next_obs_aux2, False)
+                next_obs_aux2 = self.preprocess(next_obs_aux2, False, False)
                 if skip_states > 2:
-                    next_obs_aux1 = self.preprocess(next_obs_aux1, False)
+                    next_obs_aux1 = self.preprocess(next_obs_aux1, False, False)
                     # TODO: esto no se debería hacer con todas las imágenes intermedias? consultar en paper atari dqn
                     next_obs = np.maximum(next_obs_aux2, next_obs_aux1)
 
                 else:
-                    next_obs = self.preprocess(next_obs, False)
+                    next_obs = self.preprocess(next_obs, False, False)
                     next_obs = np.maximum(next_obs_aux2, next_obs)
             else:
-                next_obs = self.preprocess(next_obs_aux2, False)
+                next_obs = self.preprocess(next_obs_aux2, False, False)
         else:
             next_obs = next_obs
         return done, next_obs, reward, epochs
@@ -431,7 +434,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
             episodic_reward = 0
             epochs = 0
             observations, info = self.env.reset()
-            observations = self.preprocess(observations, False)
+            observations = self.preprocess(observations, False, False)
 
             # stacking inputs
             for i, agent in enumerate(self.env.agents):
@@ -461,7 +464,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                 observations, rewards, terminations, truncations, infos = self.env.step(actions)
                 #obs, reward, terminated, truncated, info = self.env.step(action)
 
-                observations = self.preprocess(observations, False)
+                observations = self.preprocess(observations, False, False)
 
                 if discriminator is not None:#Esto no entra (hay que retocarlo si entra)
                     if discriminator.stack:
@@ -486,7 +489,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
         # print('Mean Reward ', epi_rew_mean / n_iter)
         self.env.close()
 
-    def _preprocess(self, obs, coop):
+    def _preprocess(self, obs, coop, comp_hardcore):
         """
         Preprocessing function by default does nothing to the observation.
         :param obs: (numpy nd array) Observation (state).
@@ -496,6 +499,12 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
             for agent in self.env.agents:
                 obs_aux.append(obs[agent])
             return obs_aux
+        elif comp_hardcore:
+            for evader in self.env.aec_env.env.env.evaders:
+                #cv2.imshow("Ventana", obs[agent])
+                #cv2.waitKey(0)
+                obs[evader] = np.ravel(obs[evader])
+            return obs
         else:
             for agent in self.env.agents:
                 #cv2.imshow("Ventana", obs[agent])
@@ -591,6 +600,6 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
         :return: (int or [floats]) int if actions are discrete or numpy array of float of action shape if actions are
             continuous)
         """
-        obs_aux = self.preprocess(obs, True)
+        obs_aux = self.preprocess(obs, True, False)
         action_aux = self.agents[0].act_train(obs_aux, len(self.env.agents))
         return action_aux, obs_aux

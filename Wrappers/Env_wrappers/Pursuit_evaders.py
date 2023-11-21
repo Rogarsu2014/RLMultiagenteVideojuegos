@@ -146,6 +146,7 @@ class raw_env_evaders(AECEnv, EzPickle):
         self.evader_selection = None
         self.rewards_evaders = None
         self._cumulative_rewards_evaders = None
+        self.deleted_already = self.env.evaders_gone
 
     def reset(self, seed=None, options=None):
         if seed is not None:
@@ -166,7 +167,7 @@ class raw_env_evaders(AECEnv, EzPickle):
         self.infos = dict(zip(self.agents, [{} for _ in self.agents]))
 
         self._agent_selector.reinit(self.agents)
-        self._evader_selector.reinit(self.agents)
+        self._evader_selector.reinit(self.evaders)
 
         self.agent_selection = self._agent_selector.next()
         self.evader_selection = self._evader_selector.next()
@@ -209,6 +210,16 @@ class raw_env_evaders(AECEnv, EzPickle):
         if self.render_mode == "human":
             self.render()
 
+        for i, bool in enumerate(self.env.evaders_gone):
+            if bool == True and self.deleted_already[i] != True:
+                self.evaders.pop(i)
+                self.deleted_already[i] = True
+        if self.evader_selection not in self.evaders:
+            self.evader_selection = self._evader_selector.next()
+
+
+
+
     def step_evader(self, action):
         if (
             self.terminations[self.agent_selection]
@@ -216,9 +227,8 @@ class raw_env_evaders(AECEnv, EzPickle):
         ):
             return
         evader = self.evader_selection
-        self.env.step(
-            action, self.evaders_name_mapping[evader], self._evader_selector.is_last()
-        )
+        self.env.step_evader(action, self.evaders.index(evader))
+
         for k in self.evaders:
             self.rewards_evaders[k] = self.env.latest_reward_evader_state[self.evaders_name_mapping[k]]
         self.steps += 1
