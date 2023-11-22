@@ -80,7 +80,7 @@ show_results = False
 coop = False
 comp = False
 comp_hardcore = True
-n_catch = 1
+n_catch = 2
 shared_reward = False
 num_agents_dqn = 2
 num_pursuers = 8
@@ -103,7 +103,7 @@ if coop:
 elif comp:
     name += "comp_"
 elif comp_hardcore:
-    name += "comp_hardcore"
+    name += "comp_hardcore_"
 
 
 
@@ -138,10 +138,10 @@ if show_results:
 problem = dqn_problem_multiagent.DQNProblemMultiAgent(environment, agents)
 
 if not show_results:
-    problem.solve(50, verbose=1, comp=comp, coop=coop, comp_harcore=comp_hardcore)
-    if comp:
+    problem.solve(50, verbose=1, comp=comp, coop=coop, comp_hardcore=comp_hardcore)
+    if comp or comp_hardcore:
         for i in range(num_agents_dqn+1):
-            hist = problem.get_histogram_metrics(i, comp)
+            hist = problem.get_histogram_metrics(i, (comp or comp_hardcore))
 
             num = "of agent " + str(i)
             if i == num_agents_dqn:

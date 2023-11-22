@@ -18,6 +18,14 @@ class PursuitEvaders(Pursuit):
         self.num_evaders = n_evaders
         self.latest_reward_evader_state = [0 for _ in range(self.num_evaders)]
 
+        self.surround_mask_evaders = np.array([
+            [-2, 2], [-1, 2], [0, 2], [1, 2], [2, 2],
+            [-2, 1], [-1, 1], [0, 1], [1, 1], [2, 1],
+            [-2, 0], [-1, 0], [0, 0], [1, 0], [2, 0],
+            [-2, -1], [-1, -1], [0, -1], [1, -1], [2, -1],
+            [-2, -2], [-1, -2], [0, -2], [1, -2], [2, -2],
+        ])
+
         super().__init__(x_size=x_size, y_size=y_size, max_cycles=max_cycles, shared_reward=shared_reward,
                          n_evaders=n_evaders, n_pursuers=n_pursuers, obs_range=obs_range, n_catch=n_catch,
                          freeze_evaders=freeze_evaders, evader_controller=evader_controller,
@@ -75,6 +83,8 @@ class PursuitEvaders(Pursuit):
 
         self.latest_reward_evader_state = self.reward_evader() / self.num_evaders
 
+        self.latest_reward_evader_state += self.tag_reward
+
         self.model_state[2] = self.evader_layer.get_state_matrix()
         # Update the remaining layers
         self.model_state[0] = self.map_matrix
@@ -90,7 +100,28 @@ class PursuitEvaders(Pursuit):
             self.render()
 
     def reward_evader(self):
-        rewards = [self.tag_reward for i in range(self.n_evaders)]
+        #rewards = [self.tag_reward for i in range(self.n_evaders)]
+        es = self.pursuer_layer.get_state_matrix()  # evader positions
+        rewards = [
+            self.urgency_reward
+            * np.sum(
+                es[
+                    np.clip(
+                        self.evader_layer.get_position(i)[0]
+                        + self.surround_mask_evaders[:, 0],
+                        0,
+                        self.x_size - 1,
+                    ),
+                    np.clip(
+                        self.evader_layer.get_position(i)[1]
+                        + self.surround_mask_evaders[:, 1],
+                        0,
+                        self.y_size - 1,
+                    ),
+                ]
+            )
+            for i in range(self.evader_layer.n_agents())
+        ]
         return np.array(rewards)
 
     def safely_observe_layer(self, layer_number, i):

@@ -146,7 +146,7 @@ class raw_env_evaders(AECEnv, EzPickle):
         self.evader_selection = None
         self.rewards_evaders = None
         self._cumulative_rewards_evaders = None
-        self.deleted_already = self.env.evaders_gone
+        self.deleted_already = self.env.evaders_gone.copy()
 
     def reset(self, seed=None, options=None):
         if seed is not None:
@@ -173,6 +173,8 @@ class raw_env_evaders(AECEnv, EzPickle):
         self.evader_selection = self._evader_selector.next()
 
         self.env.reset()
+
+        self.deleted_already = self.env.evaders_gone.copy()
 
     def close(self):
         if not self.closed:
@@ -212,25 +214,28 @@ class raw_env_evaders(AECEnv, EzPickle):
 
         for i, bool in enumerate(self.env.evaders_gone):
             if bool == True and self.deleted_already[i] != True:
-                self.evaders.pop(i)
+                self.evaders.remove("evader_"+str(i))
                 self.deleted_already[i] = True
         if self.evader_selection not in self.evaders:
+            if len(self.evaders) == 0:
+                return
+            self._evader_selector._current_agent = 0
             self.evader_selection = self._evader_selector.next()
 
 
 
 
     def step_evader(self, action):
-        if (
+        '''if (
             self.terminations[self.agent_selection]
             or self.truncations[self.agent_selection]
         ):
-            return
+            return'''
         evader = self.evader_selection
         self.env.step_evader(action, self.evaders.index(evader))
 
         for k in self.evaders:
-            self.rewards_evaders[k] = self.env.latest_reward_evader_state[self.evaders_name_mapping[k]]
+            self.rewards_evaders[k] = self.env.latest_reward_evader_state[self.evaders.index(k)]
         self.steps += 1
 
         self._cumulative_rewards_evaders[self.evader_selection] = 0
@@ -247,7 +252,7 @@ class raw_env_evaders(AECEnv, EzPickle):
             name = self.agent_name_mapping[agent]
         else:
             layer = 1
-            name = self.evaders_name_mapping[agent]
+            name = self.evaders.index(agent)
         o = self.env.safely_observe_layer(layer, name)
         return np.swapaxes(o, 2, 0)
 

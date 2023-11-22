@@ -74,7 +74,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
 
 
     def solve(self, episodes, render=True, render_after=None, max_step_epi=None, skip_states=1, verbose=1,
-              discriminator=None, save_live_histogram=False, smooth_rewards=10, comp = False, coop = False, comp_harcore = False):
+              discriminator=None, save_live_histogram=False, smooth_rewards=10, comp = False, coop = False, comp_hardcore = False):
         """ Method for training the agent to solve the environment problem. The reinforcement learning loop is
         implemented here.
 
@@ -92,7 +92,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
             information will be recorded.
         :return:
         """
-        if comp or comp_harcore:
+        if comp or comp_hardcore:
             self.histogram_metrics = [[] for i in range(self.num_agents + 1)]
 
         self.compile()
@@ -119,13 +119,13 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
         for e in range(episodes):
 
             # Init episode parameters
-            if comp_harcore:
+            if comp_hardcore:
                 observations, infos, observations_evaders = self.env.reset()
             else:
                 observations, infos = self.env.reset()
 
 
-            if comp or comp_harcore:
+            if comp or comp_hardcore:
                 episodic_reward = [0] * (self.num_agents+1)
             else:
                 episodic_reward = 0
@@ -134,7 +134,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
 
             # Reading initial state
             observations = self.preprocess(observations, False, False)
-            if comp_harcore:
+            if comp_hardcore:
                 observations_evaders = self.preprocess(observations_evaders, False, True)
             # obs = np.zeros((300, 300))
 
@@ -148,7 +148,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                     obs_next_queue[j].append(observations[j])
 
             actions = {}
-            if comp_harcore:
+            if comp_hardcore:
                 actions_evaders = {}
 
             # While the episode doesn't reach a final state
@@ -160,7 +160,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                     all_actions, observations = self.act_train_all(observations)
                     for i, agent in enumerate(self.env.agents):
                         actions[agent] = all_actions[i]
-                elif comp_harcore:
+                elif comp_hardcore:
                     for i, agent in enumerate(self.env.agents):
                         actions[agent] = self.act_train(observations[agent], obs_queue[0], 0, True)
                     for i, evader in enumerate(self.env.aec_env.env.env.evaders):
@@ -169,7 +169,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                     for i, agent in enumerate(self.env.agents):
                         actions[agent] = self.act_train(observations[agent], obs_queue[i%self.num_agents], i, False)
 
-                if comp_harcore:
+                if comp_hardcore:
                     next_observations, rewards, terminations, truncations, infos = self.env.step(actions)
                     next_observations_evaders, rewards_evaders = self.env.step_evaders(actions_evaders)
 
@@ -191,8 +191,8 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
 
                 if coop:
                     if len(self.env.agents) != 0:
-                        next_observations, obs_next_queue, rewards, done, epochs = self.store_experience(actions.copy(), done, next_observations, observations, obs_next_queue, obs_queue, rewards, skip_states, epochs, 0, coop)
-                elif comp_harcore:
+                        next_observations, obs_next_queue, rewards, done, epochs = self.store_experience(actions.copy(), done, next_observations, observations, obs_next_queue, obs_queue, rewards, skip_states, epochs, 0, coop, False)
+                elif comp_hardcore:
                     for i, agent in enumerate(self.env.agents):
                         next_observations[agent], obs_next_queue[0], rewards[agent], done, epochs = self.store_experience(actions[agent], done, next_observations[agent], observations[agent], obs_next_queue[0],
                                                                             obs_queue[0], rewards[agent], skip_states, epochs, 0, False, True)
@@ -202,7 +202,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                 else:
                     for i, agent in enumerate(self.env.agents):
                         next_observations[agent], obs_next_queue[i%self.num_agents], rewards[agent], done, epochs = self.store_experience(actions[agent], done, next_observations[agent], observations[agent], obs_next_queue[i%self.num_agents],
-                                                                            obs_queue[i%self.num_agents], rewards[agent], skip_states, epochs, i, False)
+                                                                            obs_queue[i%self.num_agents], rewards[agent], skip_states, epochs, i, False, False)
                 if epochs % 25 == 0:
                     for agent in self.agents:
                         # Replay some memories and training the agent
@@ -211,7 +211,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                 # copy next_obs to obs
                 observations, obs_queue = self.copy_next_obs(next_observations, observations, obs_next_queue, obs_queue,0)#i = 0 por conveniencia
 
-                if comp_harcore:
+                if comp_hardcore:
                     observations_evaders, obs_queue = self.copy_next_obs(next_observations_evaders, observations_evaders, obs_next_queue,
                                                                  obs_queue, 0)  # i = 0 por conveniencia
 
@@ -225,13 +225,14 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                     episodic_reward[self.num_agents] += sum(values) / len(values)
                     # Add reward to the list
                     rew_mean_list.append(episodic_reward[self.num_agents])
-                elif comp_harcore:
+                elif comp_hardcore:
                     values_evaders = rewards_evaders.values()
                     for agent in self.env.agents:
                         episodic_reward[0] += rewards[agent]
                     for evader in self.env.aec_env.env.env.evaders:
                         episodic_reward[1] += rewards_evaders[evader]
-                    episodic_reward[self.num_agents] += (sum(values) / len(values)) + (sum(values_evaders) / len(values_evaders))
+                    if len(values_evaders) != 0:
+                        episodic_reward[self.num_agents] += (sum(values) / len(values)) + (sum(values_evaders) / len(values_evaders))
                     # Add reward to the list
                     rew_mean_list.append(episodic_reward[self.num_agents])
                 else:
@@ -241,7 +242,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                 epochs += 1
                 self.global_steps += 1
 
-            if comp or comp_harcore:
+            if comp or comp_hardcore:
                 for i in range(self.num_agents+1):
                     self.histogram_metrics[i].append([self.total_episodes, episodic_reward[i], epochs, self.agents[i%self.num_agents].epsilon, self.global_steps])
             else:
@@ -259,11 +260,11 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                 self.agents[i].copy_model_to_target()
 
             # Print log on scream
-            self._feedback_print(self.total_episodes, episodic_reward, epochs, verbose, rew_mean_list, comp)
+            self._feedback_print(self.total_episodes, episodic_reward, epochs, verbose, rew_mean_list, comp, comp_hardcore)
             self.total_episodes += 1
 
             for i, agent in enumerate(self.agents):
-                if comp or comp_harcore:
+                if comp or comp_hardcore:
                     self.agents[i].save_tensorboar_rl_histogram(self.histogram_metrics[i])
                 else:
                     self.agents[i].save_tensorboar_rl_histogram(self.histogram_metrics)
@@ -406,7 +407,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
             next_obs = next_obs
         return done, next_obs, reward, epochs
 
-    def test(self, n_iter=1, render=True, verbose=1, callback=None, smooth_rewards=10, discriminator=None, coop = False):
+    def test(self, n_iter=1, render=True, verbose=1, callback=None, smooth_rewards=10, discriminator=None, coop = False, comp_hardcore= False):
         """ Test a trained agent using only exploitation mode on the environment.
 
         :param n_iter: (int) number of test iterations.
@@ -433,7 +434,12 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
             done = False
             episodic_reward = 0
             epochs = 0
-            observations, info = self.env.reset()
+            if comp_hardcore:
+                observations, info, observations_evaders = self.env.reset()
+
+                observations_evaders = self.preprocess(observations_evaders, False, True)
+            else:
+                observations, info = self.env.reset()
             observations = self.preprocess(observations, False, False)
 
             # stacking inputs
@@ -444,6 +450,8 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                     obs_queue.append(observations)
 
             actions = {}
+            if comp_hardcore:
+                actions_evaders = {}
             while self.env.agents:
                 if render:
                     self.env.render()
@@ -455,13 +463,27 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                     all_actions, observations = self.act_train_all(observations)
                     for i, agent in enumerate(self.env.agents):
                         actions[agent] = all_actions[i]
+                elif comp_hardcore:
+                    for i, agent in enumerate(self.env.agents):
+                        actions[agent] = self.act(observations[agent], obs_queue[i % self.num_agents], 0, True)
+                    for i, evader in enumerate(self.env.aec_env.env.env.evaders):
+                        actions_evaders[evader] = self.act(observations_evaders[evader], obs_queue[i % self.num_agents], 1, True)
+
+                    prev_observations_evaders = observations_evaders
                 else:
                     for i, agent in enumerate(self.env.agents):
                         actions[agent] = self.act(observations[agent], obs_queue[i % self.num_agents], i, False)
                 #action = self.act(obs, obs_queue)
                 prev_observations = observations
 
-                observations, rewards, terminations, truncations, infos = self.env.step(actions)
+                if comp_hardcore:
+                    observations, rewards, terminations, truncations, infos = self.env.step(actions)
+                    observations_evaders, rewards_evaders = self.env.step_evaders(actions_evaders)
+
+                    observations_evaders = self.preprocess(observations_evaders, False, True)
+                else:
+                    observations, rewards, terminations, truncations, infos = self.env.step(actions)
+
                 #obs, reward, terminated, truncated, info = self.env.step(action)
 
                 observations = self.preprocess(observations, False, False)
@@ -476,7 +498,14 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                     callback(prev_observations, observations, actions, reward, done, info)#Esto no entra (hay que retocarlo si entra)
 
                 values = rewards.values()
-                episodic_reward += sum(values) / len(values)
+                if comp_hardcore:
+                    values_evaders = rewards_evaders.values()
+                    if len(values_evaders) != 0:
+                        episodic_reward += (sum(values) / len(values)) + (sum(values_evaders) / len(values_evaders))
+                    else:
+                        episodic_reward += sum(values) / len(values)
+                else:
+                    episodic_reward += sum(values) / len(values)
                 epochs += 1
 
                 for i, agent in enumerate(self.env.agents):#Esto no entra (hay que retocarlo si entra)
@@ -484,7 +513,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                         obs_queue.append(observations[agent])
             rew_mean_list.append(episodic_reward)
 
-            self._feedback_print(e, episodic_reward, epochs, verbose, rew_mean_list, comp=False, test=True)
+            self._feedback_print(e, episodic_reward, epochs, verbose, rew_mean_list, comp=False,comp_hardcore=False, test=True)
 
         # print('Mean Reward ', epi_rew_mean / n_iter)
         self.env.close()
@@ -531,7 +560,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
             return epochs >= max_steps or done
         return done
 
-    def _feedback_print(self, episode, episodic_reward, epochs, verbose, epi_rew_list, comp, test=False):
+    def _feedback_print(self, episode, episodic_reward, epochs, verbose, epi_rew_list, comp, comp_hardcore, test=False):
         """
         Print on terminal information about the training process.
         :param episode: (int) Current episode.
@@ -551,7 +580,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
             episode_str = 'Episode: '
         if verbose == 1:
             if (episode + 1) % 1 == 0:
-                if comp:
+                if comp or comp_hardcore:
                     print(episode_str, episode + 1, 'Epochs: ', epochs, ' Reward: {:.1f}'.format(episodic_reward[self.num_agents]),
                           'Smooth Reward: {:.1f}'.format(rew_mean), ' Epsilon: {:.4f}'.format(self.agents[0].epsilon))
                 else:
