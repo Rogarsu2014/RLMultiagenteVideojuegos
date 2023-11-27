@@ -76,7 +76,7 @@ if gpu_devices:
 else:
     print("TensorFlow is using CPU.")
 
-show_results = False
+show_results = True
 coop = False
 comp = False
 comp_hardcore = True
@@ -85,10 +85,11 @@ shared_reward = False
 num_agents_dqn = 2
 num_pursuers = 8
 num_evaders_hardcore = 8
+num_episodes = 1000
 
 if comp_hardcore:
     environment = pursuit_v_evaders.parallel_env(n_evaders=num_evaders_hardcore, n_pursuers=num_pursuers, n_catch=n_catch, surround=False,
-                                          shared_reward=shared_reward)  # , render_mode="human"
+                                          shared_reward=shared_reward, render_mode="human")  #, render_mode="human"
 else:
     environment = pursuit_v4.parallel_env(n_evaders=30, n_pursuers=num_pursuers, n_catch=n_catch, surround=False, shared_reward=shared_reward)#, render_mode="human"
 
@@ -104,6 +105,10 @@ elif comp:
     name += "comp_"
 elif comp_hardcore:
     name += "comp_hardcore_"
+else:
+    name += "default_"
+
+name += str(num_episodes)+"_"
 
 
 
@@ -138,7 +143,7 @@ if show_results:
 problem = dqn_problem_multiagent.DQNProblemMultiAgent(environment, agents)
 
 if not show_results:
-    problem.solve(50, verbose=1, comp=comp, coop=coop, comp_hardcore=comp_hardcore)
+    problem.solve(num_episodes, verbose=1, comp=comp, coop=coop, comp_hardcore=comp_hardcore)
     if comp or comp_hardcore:
         for i in range(num_agents_dqn+1):
             hist = problem.get_histogram_metrics(i, (comp or comp_hardcore))
@@ -158,7 +163,7 @@ if not show_results:
         num = ""
         plot_reward_hist(hist, n_moving_average=10, agent=num, n_catch=str(n_catch), shared_reward=str(shared_reward))
 
-problem.test(n_iter=3, verbose=1, coop=coop, comp_hardcore=comp_hardcore)
+problem.test(n_iter=10, verbose=1, coop=coop, comp_hardcore=comp_hardcore)
 
 
 if not show_results:

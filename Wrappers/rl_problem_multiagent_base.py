@@ -1,4 +1,6 @@
 import copy
+import random
+
 import numpy as np
 import cv2
 
@@ -632,3 +634,6 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
         obs_aux = self.preprocess(obs, True, False)
         action_aux = self.agents[0].act_train(obs_aux, len(self.env.agents))
         return action_aux, obs_aux
+
+    def act_train_test(self, obs, obs_queue, i, comp_hardcore):
+        return random.randint(0, 4)
