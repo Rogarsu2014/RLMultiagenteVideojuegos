@@ -316,7 +316,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
             action = self.agents[i%self.num_agents].act(np.array(obs_queue))
         else:
             if comp_hardcore:
-                action = self.agents[i].act_train(obs)
+                action = self.agents[i].act(obs)
             else:
                 action = self.agents[i%self.num_agents].act(obs)
         return action

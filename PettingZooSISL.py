@@ -67,6 +67,11 @@ def greedy_multi_action(act_pred, n_actions, i, epsilon=0., n_env=1, exploration
             actions.append(np.argmax(act_pred[0][j*n_actions:(j+1)*n_actions], axis=-1))
     return actions
 
+def argmax_multiaction(act_pred, n_actions, i, epsilon=0., n_env=1, exploration_noise=1.0):
+    actions = []
+    for j in range(i):
+        actions.append(np.argmax(act_pred[0][j * n_actions:(j + 1) * n_actions], axis=-1))
+    return actions
 
 # Get the list of available GPU devices
 gpu_devices = tf.config.list_physical_devices('GPU')
@@ -80,7 +85,7 @@ show_results = False
 coop = True
 comp = False
 comp_hardcore = False
-n_catch = 1
+n_catch = 2
 shared_reward = False
 num_agents_dqn = 1
 num_pursuers = 8
@@ -125,6 +130,7 @@ if coop:
                                                   num_pur=num_pursuers, learning_rate=1e-3, batch_size=128, epsilon=0.4,
                                                   epsilon_decay=0.999, epsilon_min=0.15, img_input=False,
                                                   state_size=147 * num_pursuers, train_steps=10,
+                                                  action_selection_options=argmax_multiaction,
                                                   train_action_selection_options=greedy_multi_action))
 else:
     for i in range(num_agents_dqn):#environment.agents:

@@ -155,6 +155,18 @@ class BrainAgent(DQNAgentSuper):
 
         return actions
 
+    def act(self, obs, i):
+        """
+        Selecting the action for test mode.
+        :param obs: Observation (State)
+        """
+        obs = self._format_obs_act(obs)
+        act_pred = self.model.predict(obs)
+
+        actions = self.action_selection_options(act_pred, self.n_actions, i, epsilon=self.epsilon, n_env=1)
+
+
+        return actions
 
     def load_memories(self):
         """
