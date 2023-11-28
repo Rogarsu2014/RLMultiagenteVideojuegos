@@ -76,16 +76,16 @@ if gpu_devices:
 else:
     print("TensorFlow is using CPU.")
 
-show_results = True
-coop = False
+show_results = False
+coop = True
 comp = False
-comp_hardcore = True
-n_catch = 2
+comp_hardcore = False
+n_catch = 1
 shared_reward = False
-num_agents_dqn = 2
+num_agents_dqn = 1
 num_pursuers = 8
 num_evaders_hardcore = 8
-num_episodes = 1000
+num_episodes = 300
 
 if comp_hardcore:
     environment = pursuit_v_evaders.parallel_env(n_evaders=num_evaders_hardcore, n_pursuers=num_pursuers, n_catch=n_catch, surround=False,

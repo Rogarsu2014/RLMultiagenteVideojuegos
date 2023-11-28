@@ -159,7 +159,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                     self.env.render()
                 # this is where you would insert your policy
                 if coop:
-                    all_actions, observations = self.act_train_all(observations)
+                    all_actions, observations = self.act_train_all(observations, False)
                     for i, agent in enumerate(self.env.agents):
                         actions[agent] = all_actions[i]
                 elif comp_hardcore:
@@ -462,7 +462,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
                 # TODO: poner bien
                 # action = self.act(obs, obs_queue)
                 if coop:
-                    all_actions, observations = self.act_train_all(observations)
+                    all_actions, observations = self.act_train_all(observations, True)
                     for i, agent in enumerate(self.env.agents):
                         actions[agent] = all_actions[i]
                 elif comp_hardcore:
@@ -621,7 +621,7 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
             return 0
 
 
-    def act_train_all(self, obs):
+    def act_train_all(self, obs, test):
         """
         Make the agent select an action in training mode given an observation. Use an input depending if the
         observations are stacked in
@@ -632,7 +632,10 @@ class RLProblemMultiAgentSuper(object, metaclass=ABCMeta):
             continuous)
         """
         obs_aux = self.preprocess(obs, True, False)
-        action_aux = self.agents[0].act_train(obs_aux, len(self.env.agents))
+        if not test:
+            action_aux = self.agents[0].act_train(obs_aux, len(self.env.agents))
+        else:
+            action_aux = self.agents[0].act(obs_aux, len(self.env.agents))
         return action_aux, obs_aux
 
     def act_train_test(self, obs, obs_queue, i, comp_hardcore):
